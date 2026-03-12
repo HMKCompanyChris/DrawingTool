@@ -2024,7 +2024,12 @@ area.addEventListener('mousedown',e=>{
       if(hitIdx>=0){
         S.selectedIdx=hitIdx;
         pushUndo();
-        S.moving={startPos:pos,origMarkup:JSON.parse(JSON.stringify(S.markups[hitIdx])),moved:false};
+        S.moving={
+          startPos:pos,
+          origMarkup:JSON.parse(JSON.stringify(S.markups[hitIdx])),
+          _imgObj:S.markups[hitIdx]._imgObj||null,  // preserve Image ref across JSON serialization
+          moved:false
+        };
         redraw();return;
       }
     }
@@ -2088,6 +2093,8 @@ area.addEventListener('mousemove',e=>{
   if(S.moving&&S.selectedIdx>=0){
     const dx=pos.x-S.moving.startPos.x,dy=pos.y-S.moving.startPos.y;
     S.markups[S.selectedIdx]=JSON.parse(JSON.stringify(S.moving.origMarkup));
+    // Restore Image object lost by JSON round-trip (critical for snip markups)
+    if(S.moving._imgObj)S.markups[S.selectedIdx]._imgObj=S.moving._imgObj;
     moveMarkupBy(S.markups[S.selectedIdx],dx,dy);
     S.moving.moved=true;area.style.cursor='move';redraw();return;
   }
@@ -2188,8 +2195,13 @@ area.addEventListener('mouseup',e=>{
         const preImg=new Image();
         preImg.onload=()=>{
           pushUndo();
+          // White rect blanks out the origin — stays put while the image is moved
+          S.markups.push({type:'rect',x1:sx,y1:sy,x2:sx+sw_,y2:sy+sh_,
+            color:'#ffffff',sw:0,fo:1,_snipBlank:true});
           S.markups.push({type:'snip',x1:sx,y1:sy,x2:sx+sw_,y2:sy+sh_,img:dataUrl,_imgObj:preImg});
           setTool('select');
+          // Auto-select the snip image so user can drag it immediately
+          S.selectedIdx=S.markups.length-1;
           redraw();
         };
         preImg.src=dataUrl;
