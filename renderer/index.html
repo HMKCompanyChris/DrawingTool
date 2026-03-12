@@ -536,7 +536,15 @@ input[type=range]::-moz-range-thumb{
 
   <!-- LAYERS -->
   <div class="sb-sect">
-    <div class="sb-title">Drawing Layers</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+      <div class="sb-title" style="margin-bottom:0;flex:1">Drawing Layers</div>
+      <button id="sync-pages-btn" title="Sync page turns: flip all sheets together"
+        style="display:flex;align-items:center;gap:4px;padding:3px 7px;font-size:10px;font-weight:600;
+        border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);
+        color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s">
+        <span id="sync-pages-icon">⇄</span> Sync Pages
+      </button>
+    </div>
     <div id="layers-container"></div>
   </div>
 
@@ -897,6 +905,7 @@ const S={
   })),
   slotsShown:1,
   sessionName:'',
+  syncPages:false,
   markups:[],undo:[],redo:[],
   tool:'select',color:'#FFD700',strokeW:1,fillOpacity:.2,
   zoom:1,panX:0,panY:0,
@@ -1384,13 +1393,26 @@ async function changePage(layerId,delta){
   if(!L.pdfDoc)return;
   const np=L.currentPage+delta;
   if(np<1||np>L.totalPages)return;
-  L.currentPage=np;
-  setStatus(`Rendering page ${np}…`);
-  L.renderedCanvas=await renderPage(L.pdfDoc,np,L.color);
-  updateCanvasSize();
-  buildSidebar();
-  redraw();
-  setStatus(`Page ${np} of ${L.totalPages}`);
+
+  if(S.syncPages){
+    // Sync mode: advance all loaded layers by the same delta
+    const renders=S.layers.map(async(layer)=>{
+      if(!layer.pdfDoc)return;
+      const tp=Math.min(Math.max(layer.currentPage+delta,1),layer.totalPages);
+      layer.currentPage=tp;
+      layer.renderedCanvas=await renderPage(layer.pdfDoc,tp,layer.color);
+    });
+    setStatus('Syncing pages…');
+    await Promise.all(renders);
+    updateCanvasSize();buildSidebar();redraw();
+    setStatus(`Synced to page ${np}`);
+  } else {
+    L.currentPage=np;
+    setStatus(`Rendering page ${np}…`);
+    L.renderedCanvas=await renderPage(L.pdfDoc,np,L.color);
+    updateCanvasSize();buildSidebar();redraw();
+    setStatus(`Page ${np} of ${L.totalPages}`);
+  }
 }
 
 // ════════════════════════════════════════════════
@@ -3186,6 +3208,21 @@ document.getElementById('home-import-input').addEventListener('change',e=>{
   r.readAsText(file);e.target.value='';
 });
 document.getElementById('btn-back-home').addEventListener('click',showHomeScreen);
+
+// Sync Pages toggle
+document.getElementById('sync-pages-btn').addEventListener('click',()=>{
+  S.syncPages=!S.syncPages;
+  const btn=document.getElementById('sync-pages-btn');
+  if(S.syncPages){
+    btn.style.background='var(--accent)';
+    btn.style.color='#fff';
+    btn.style.borderColor='var(--accent)';
+  } else {
+    btn.style.background='var(--surface2)';
+    btn.style.color='var(--muted)';
+    btn.style.borderColor='var(--border)';
+  }
+});
 
 // Boot
 (function boot(){
