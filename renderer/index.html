@@ -103,6 +103,24 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
 }
 .lupload:hover{background:var(--accent-hover)}
 .lupload input{display:none}
+/* Simplified sidebar additions */
+.lcard-empty{padding:10px}
+.lload-big{
+  display:block;width:100%;box-sizing:border-box;
+  padding:10px 8px;font-size:12px;margin-top:4px;
+  text-align:center;border-radius:var(--radius-sm);
+  background:var(--accent);color:#fff;font-weight:600;
+  cursor:pointer;border:none;transition:background .15s;letter-spacing:.1px
+}
+.lload-big:hover{background:var(--accent-hover)}
+.add-sheet-btn{
+  display:block;width:100%;box-sizing:border-box;
+  padding:8px;font-size:12px;font-weight:600;
+  background:var(--surface2);border:1px dashed var(--border);
+  border-radius:var(--radius);color:var(--text2);cursor:pointer;
+  text-align:center;transition:all .15s;letter-spacing:.1px;font-family:inherit
+}
+.add-sheet-btn:hover{background:var(--hover);color:var(--text);border-color:var(--accent)}
 .lclear{
   background:var(--surface);border:1px solid var(--border);
   border-radius:var(--radius-sm);width:30px;height:28px;
@@ -862,6 +880,7 @@ const S={
     renderedCanvas:null,
     offsetX:0,offsetY:0,scaleRatio:1.0,rotation:0,masks:[]
   })),
+  slotsShown:1,
   markups:[],undo:[],redo:[],
   tool:'select',color:'#FFD700',strokeW:1,fillOpacity:.2,
   zoom:1,panX:0,panY:0,
@@ -1329,6 +1348,9 @@ async function loadPDF(file,layerId){
     L.pdfDoc=pdf;L.totalPages=pdf.numPages;L.currentPage=1;
     L.renderedCanvas=await renderPage(pdf,1,L.color);
     L.name=file.name.replace(/\.pdf$/i,'').slice(0,28);
+    // Expand slotsShown so next empty slot is always visible (up to 3)
+    const loadedCount=S.layers.filter(l=>!!l.pdfDoc).length;
+    S.slotsShown=Math.min(loadedCount+1,3);
     updateCanvasSize();
     buildSidebar();
     document.getElementById('empty-msg').style.display='none';
@@ -1361,64 +1383,87 @@ async function changePage(layerId,delta){
 function buildSidebar(){
   const c=document.getElementById('layers-container');
   c.innerHTML='';
-  S.layers.forEach((L,i)=>{
-    const card=document.createElement('div');
-    card.className='lcard';
+  const shown=Math.min(S.slotsShown,3);
+  for(let i=0;i<shown;i++){
+    const L=S.layers[i];
     const hasFile=!!L.pdfDoc;
-    const visClass=L.visible?'lvis':'lvis off';
-    card.innerHTML=`
-      <div class="lcard-hdr">
-        <div class="ldot" style="background:${L.color}"></div>
-        <div class="lname">${L.name}</div>
-        <button class="${visClass}" data-vid="${i}" title="Toggle visibility">${L.visible?'👁':'○'}</button>
-      </div>
-      <div class="lfile">${hasFile?L.name+'.pdf':'No file loaded'}</div>
-      ${hasFile?`<div class="lcard-btns">
-        <div class="page-nav">
-          <button data-pg="${i}" data-d="-1" ${L.currentPage<=1?'disabled':''}>‹</button>
-          <span class="page-lbl">Pg ${L.currentPage}/${L.totalPages}</span>
-          <button data-pg="${i}" data-d="1" ${L.currentPage>=L.totalPages?'disabled':''}>›</button>
+    const card=document.createElement('div');
+    if(!hasFile){
+      // Minimal "Load Sheet" card
+      card.className='lcard lcard-empty';
+      card.innerHTML=`
+        <div class="lcard-hdr">
+          <div class="ldot" style="background:${L.color}"></div>
+          <div class="lname">${L.name}</div>
         </div>
-      </div>`:''}
-      <div class="lcard-btns">
-        <label class="lupload">📂 Load PDF<input type="file" accept=".pdf" data-lid="${i}"></label>
-        ${hasFile?`<button class="lclear" data-clr="${i}" title="Clear layer">✕</button>`:''}
-      </div>
-      <div class="row2"><span>Opacity</span><strong id="oplbl${i}">${Math.round(L.opacity*100)}%</strong></div>
-      <input type="range" min="10" max="100" value="${Math.round(L.opacity*100)}" data-oplid="${i}">
-      <div class="row2" style="margin-top:4px"><span>X offset</span><span id="xovlbl${i}" class="off-val">${Math.round(L.offsetX)}px</span></div>
-      <input type="range" min="-5000" max="5000" value="${Math.round(L.offsetX)}" data-xid="${i}">
-      <div class="row2"><span>Y offset</span><span id="yovlbl${i}" class="off-val">${Math.round(L.offsetY)}px</span></div>
-      <input type="range" min="-5000" max="5000" value="${Math.round(L.offsetY)}" data-yid="${i}">
-      <div class="row2" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
-        <span>Rotation</span>
-        <span id="rotlbl${i}" style="font-size:10px;color:var(--text2);font-weight:600">${L.rotation||0}°</span>
-      </div>
-      <div style="display:flex;gap:4px;margin-bottom:4px">
-        <button data-rotl="${i}" style="flex:1;padding:5px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 90° counter-clockwise">↺ 90°</button>
-        <button data-rotr="${i}" style="flex:1;padding:5px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 90° clockwise">↻ 90°</button>
-        <button data-rot180="${i}" style="flex:1;padding:5px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 180°">180°</button>
-        <button data-rot0="${i}" style="flex:1;padding:5px;font-size:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);cursor:pointer" title="Reset rotation">0°</button>
-      </div>
-      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
-        <button data-rotfine="${i}" data-deg="-1" style="width:28px;height:28px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;flex-shrink:0" title="Rotate −1°">−1°</button>
-        <input type="number" min="-359" max="359" step="1" value="${Math.round(L.rotation||0)}" data-rotnum="${i}"
-          style="flex:1;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;text-align:center" title="Enter exact rotation in degrees">
-        <button data-rotfine="${i}" data-deg="1" style="width:28px;height:28px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;flex-shrink:0" title="Rotate +1°">+1°</button>
-      </div>
-      <div class="row2" style="border-top:1px solid var(--border);padding-top:6px">
-        <span>Scale</span>
-        <span id="srlbl${i}" style="font-size:10px;color:var(--text2);font-weight:600">${(L.scaleRatio||1).toFixed(3)}×</span>
-      </div>
-      <input type="range" min="200" max="2000" value="${Math.round((L.scaleRatio||1)*1000)}" data-srid="${i}" style="margin-bottom:2px">
-      <div style="display:flex;gap:4px;margin-bottom:4px">
-        <input type="number" min="0.1" max="5" step="0.001" value="${(L.scaleRatio||1).toFixed(3)}" data-srnum="${i}"
-          style="flex:1;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit">
-        <button data-srreset="${i}" style="padding:3px 7px;font-size:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:inherit" title="Reset scale to 1×">1×</button>
-      </div>
-    `;
+        <label class="lupload lload-big">📂 Load Sheet<input type="file" accept=".pdf" data-lid="${i}"></label>
+      `;
+    } else {
+      // Full card for loaded layer
+      const visClass=L.visible?'lvis':'lvis off';
+      card.className='lcard';
+      card.innerHTML=`
+        <div class="lcard-hdr">
+          <div class="ldot" style="background:${L.color}"></div>
+          <div class="lname">${L.name}</div>
+          <button class="${visClass}" data-vid="${i}" title="Toggle visibility">${L.visible?'👁':'○'}</button>
+        </div>
+        <div class="lfile">${L.name}.pdf</div>
+        <div class="lcard-btns">
+          <div class="page-nav">
+            <button data-pg="${i}" data-d="-1" ${L.currentPage<=1?'disabled':''}>‹</button>
+            <span class="page-lbl">Pg ${L.currentPage}/${L.totalPages}</span>
+            <button data-pg="${i}" data-d="1" ${L.currentPage>=L.totalPages?'disabled':''}>›</button>
+          </div>
+        </div>
+        <div class="lcard-btns">
+          <label class="lupload">📂 Replace<input type="file" accept=".pdf" data-lid="${i}"></label>
+          <button class="lclear" data-clr="${i}" title="Clear layer">✕</button>
+        </div>
+        <div class="row2"><span>Opacity</span><strong id="oplbl${i}">${Math.round(L.opacity*100)}%</strong></div>
+        <input type="range" min="10" max="100" value="${Math.round(L.opacity*100)}" data-oplid="${i}">
+        <div class="row2" style="margin-top:4px"><span>X offset</span><span id="xovlbl${i}" class="off-val">${Math.round(L.offsetX)}px</span></div>
+        <input type="range" min="-5000" max="5000" value="${Math.round(L.offsetX)}" data-xid="${i}">
+        <div class="row2"><span>Y offset</span><span id="yovlbl${i}" class="off-val">${Math.round(L.offsetY)}px</span></div>
+        <input type="range" min="-5000" max="5000" value="${Math.round(L.offsetY)}" data-yid="${i}">
+        <div class="row2" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+          <span>Rotation</span>
+          <span id="rotlbl${i}" style="font-size:10px;color:var(--text2);font-weight:600">${L.rotation||0}°</span>
+        </div>
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <button data-rotl="${i}" style="flex:1;padding:5px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 90° counter-clockwise">↺ 90°</button>
+          <button data-rotr="${i}" style="flex:1;padding:5px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 90° clockwise">↻ 90°</button>
+          <button data-rot180="${i}" style="flex:1;padding:5px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 180°">180°</button>
+          <button data-rot0="${i}" style="flex:1;padding:5px;font-size:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);cursor:pointer" title="Reset rotation">0°</button>
+        </div>
+        <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
+          <button data-rotfine="${i}" data-deg="-1" style="width:28px;height:28px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;flex-shrink:0" title="Rotate −1°">−1°</button>
+          <input type="number" min="-359" max="359" step="1" value="${Math.round(L.rotation||0)}" data-rotnum="${i}"
+            style="flex:1;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;text-align:center" title="Enter exact rotation in degrees">
+          <button data-rotfine="${i}" data-deg="1" style="width:28px;height:28px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;flex-shrink:0" title="Rotate +1°">+1°</button>
+        </div>
+        <div class="row2" style="border-top:1px solid var(--border);padding-top:6px">
+          <span>Scale</span>
+          <span id="srlbl${i}" style="font-size:10px;color:var(--text2);font-weight:600">${(L.scaleRatio||1).toFixed(3)}×</span>
+        </div>
+        <input type="range" min="200" max="2000" value="${Math.round((L.scaleRatio||1)*1000)}" data-srid="${i}" style="margin-bottom:2px">
+        <div style="display:flex;gap:4px;margin-bottom:4px">
+          <input type="number" min="0.1" max="5" step="0.001" value="${(L.scaleRatio||1).toFixed(3)}" data-srnum="${i}"
+            style="flex:1;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit">
+          <button data-srreset="${i}" style="padding:3px 7px;font-size:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:inherit" title="Reset scale to 1×">1×</button>
+        </div>
+      `;
+    }
     c.appendChild(card);
-  });
+  }
+  // "+ Add Sheet" button if slots remain
+  if(shown<3){
+    const addBtn=document.createElement('button');
+    addBtn.className='add-sheet-btn';
+    addBtn.textContent='+ Add Sheet';
+    addBtn.addEventListener('click',()=>{S.slotsShown=Math.min(S.slotsShown+1,3);buildSidebar();});
+    c.appendChild(addBtn);
+  }
 
   // Bind events
   c.querySelectorAll('[data-vid]').forEach(b=>b.addEventListener('click',()=>{
@@ -1434,6 +1479,9 @@ function buildSidebar(){
   c.querySelectorAll('[data-clr]').forEach(b=>b.addEventListener('click',()=>{
     const i=+b.dataset.clr;
     S.layers[i]={...S.layers[i],pdfDoc:null,totalPages:0,currentPage:1,renderedCanvas:null,rawData:null,pdfKey:null,offsetX:0,offsetY:0,scaleRatio:1.0,rotation:0,name:LAYER_NAMES[i]};
+    // Recalculate slotsShown: loaded layers + 1 empty slot, minimum 1
+    const loadedCount=S.layers.filter(l=>!!l.pdfDoc).length;
+    S.slotsShown=Math.max(1,Math.min(loadedCount+1,3));
     buildSidebar();redraw();
     if(!S.layers.some(l=>l.renderedCanvas))document.getElementById('empty-msg').style.display='flex';
   }));
@@ -2109,25 +2157,30 @@ area.addEventListener('mouseup',e=>{
     if(S.tool==='snip'&&S.curMarkup){
       S.curMarkup.x2=pos.x;S.curMarkup.y2=pos.y;
       const sx=Math.min(S.curMarkup.x1,pos.x),sy=Math.min(S.curMarkup.y1,pos.y);
-      const sw=Math.abs(pos.x-S.curMarkup.x1),sh=Math.abs(pos.y-S.curMarkup.y1);
-      if(sw>8&&sh>8){
-        // Capture the canvas region (in canvas coordinate space) as a data URL
-        // We need to account for pan/zoom: canvas coords → pixel coords on the <canvas> element
-        const pixX=Math.round((sx+S.panX)*S.zoom), pixY=Math.round((sy+S.panY)*S.zoom);
-        // Actually canvas coords are already in "canvas space" (before transform)
-        // The canvas element pixel space = canvas_coord * zoom + pan
-        // But the canvas element itself has a 1:1 pixel mapping since we set canvas.width/height
-        // So canvas pixel = (canvas_coord) directly (no zoom needed, canvas is the full drawing surface)
+      const sw_=Math.abs(pos.x-S.curMarkup.x1),sh_=Math.abs(pos.y-S.curMarkup.y1);
+      S.drawing=false;S.curMarkup=null;
+      if(sw_>8&&sh_>8){
+        // Redraw WITHOUT the preview overlay so capture is clean
+        redraw();
+        // Capture the canvas region (canvas coords === canvas pixel coords, 1:1)
         const captureCanvas=document.createElement('canvas');
-        captureCanvas.width=Math.round(sw);captureCanvas.height=Math.round(sh);
+        captureCanvas.width=Math.round(sw_);captureCanvas.height=Math.round(sh_);
         const cctx=captureCanvas.getContext('2d');
-        cctx.drawImage(canvas,Math.round(sx),Math.round(sy),Math.round(sw),Math.round(sh),0,0,Math.round(sw),Math.round(sh));
+        cctx.drawImage(canvas,Math.round(sx),Math.round(sy),Math.round(sw_),Math.round(sh_),0,0,Math.round(sw_),Math.round(sh_));
         const dataUrl=captureCanvas.toDataURL('image/png');
-        pushUndo();
-        S.markups.push({type:'snip',x1:sx,y1:sy,x2:sx+sw,y2:sy+sh,img:dataUrl,rotation:0});
+        // Pre-load the image so it's ready on first redraw (avoids blank-on-first-frame issue)
+        const preImg=new Image();
+        preImg.onload=()=>{
+          pushUndo();
+          S.markups.push({type:'snip',x1:sx,y1:sy,x2:sx+sw_,y2:sy+sh_,img:dataUrl,_imgObj:preImg});
+          setTool('select');
+          redraw();
+        };
+        preImg.src=dataUrl;
+      } else {
+        redraw();
+        setTool('select');
       }
-      S.drawing=false;S.curMarkup=null;redraw();
-      setTool('select'); // Auto-switch to select so user can immediately reposition
       return;
     }
     if(S.tool==='pen'){
@@ -3053,8 +3106,20 @@ function renderHomeGrid(){
 document.getElementById('home-new-btn').addEventListener('click',()=>{
   hideHomeScreen();
   S.markups=[];S.undo=[];S.redo=[];S.countN=1;S.selectedIdx=-1;S.scale=null;
-  S.layers.forEach(l=>{l.masks=[];l.offsetX=0;l.offsetY=0;l.rotation=0;l.scaleRatio=1;});
-  buildSidebar();updateCanvasSize();redraw();
+  S.clashCanvas=null;S.clashCount=0;S.showClashes=true;S.slotsShown=1;
+  // Fully reset all layers — wipe PDFs too so user starts from a blank slate
+  S.layers.forEach((l,i)=>{
+    S.layers[i]={
+      id:i,name:LAYER_NAMES[i],color:LAYER_COLORS[i],
+      opacity:.85,visible:true,
+      pdfDoc:null,totalPages:0,currentPage:1,
+      renderedCanvas:null,rawData:null,pdfKey:null,
+      offsetX:0,offsetY:0,scaleRatio:1.0,rotation:0,masks:[]
+    };
+  });
+  buildSidebar();
+  document.getElementById('empty-msg').style.display='flex';
+  updateCanvasSize();redraw();
 });
 document.getElementById('home-import-btn').addEventListener('click',()=>{
   document.getElementById('home-import-input').click();
