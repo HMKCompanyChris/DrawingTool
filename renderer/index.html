@@ -479,6 +479,21 @@ input[type=range]::-moz-range-thumb{
   <button id="btn-back-home">&#8592; Back to Sessions</button>
 </div>
 
+<!-- ══ NEW SESSION NAME MODAL ══ -->
+<div class="modal-bg" id="modal-new-session" style="display:none;z-index:20000">
+  <div class="modal" style="width:400px">
+    <h3>＋ New Session</h3>
+    <p style="margin-bottom:12px;color:var(--text2);font-size:13px">Give this session a name so you can find it later.</p>
+    <input type="text" id="new-session-name-input" class="session-name-input"
+      placeholder="e.g. Phase 2 Review, Structural vs Arch…"
+      style="width:100%;box-sizing:border-box;margin-bottom:12px">
+    <div class="btn-row" style="justify-content:flex-end;gap:8px;margin:0">
+      <button class="cancel-btn" id="new-session-cancel-btn">Cancel</button>
+      <button class="btn accent" id="new-session-confirm-btn" style="margin:0">Create Session →</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ HOME / SESSIONS SCREEN ══ -->
 <div id="home-screen">
   <div class="home-header">
@@ -881,6 +896,7 @@ const S={
     offsetX:0,offsetY:0,scaleRatio:1.0,rotation:0,masks:[]
   })),
   slotsShown:1,
+  sessionName:'',
   markups:[],undo:[],redo:[],
   tool:'select',color:'#FFD700',strokeW:1,fillOpacity:.2,
   zoom:1,panX:0,panY:0,
@@ -3103,11 +3119,10 @@ function renderHomeGrid(){
   });
 }
 
-document.getElementById('home-new-btn').addEventListener('click',()=>{
-  hideHomeScreen();
+function createNewSession(name){
+  S.sessionName=name||'Untitled Session';
   S.markups=[];S.undo=[];S.redo=[];S.countN=1;S.selectedIdx=-1;S.scale=null;
   S.clashCanvas=null;S.clashCount=0;S.showClashes=true;S.slotsShown=1;
-  // Fully reset all layers — wipe PDFs too so user starts from a blank slate
   S.layers.forEach((l,i)=>{
     S.layers[i]={
       id:i,name:LAYER_NAMES[i],color:LAYER_COLORS[i],
@@ -3120,6 +3135,31 @@ document.getElementById('home-new-btn').addEventListener('click',()=>{
   buildSidebar();
   document.getElementById('empty-msg').style.display='flex';
   updateCanvasSize();redraw();
+  // Update window title to show session name
+  const titleEl=document.querySelector('.app-title');
+  if(titleEl)titleEl.textContent=S.sessionName;
+}
+
+document.getElementById('home-new-btn').addEventListener('click',()=>{
+  const modal=document.getElementById('modal-new-session');
+  const inp=document.getElementById('new-session-name-input');
+  inp.value='';
+  modal.style.display='flex';
+  setTimeout(()=>inp.focus(),50);
+});
+document.getElementById('new-session-cancel-btn').addEventListener('click',()=>{
+  document.getElementById('modal-new-session').style.display='none';
+});
+document.getElementById('new-session-confirm-btn').addEventListener('click',()=>{
+  const name=document.getElementById('new-session-name-input').value.trim();
+  if(!name){document.getElementById('new-session-name-input').focus();return;}
+  document.getElementById('modal-new-session').style.display='none';
+  hideHomeScreen();
+  createNewSession(name);
+});
+document.getElementById('new-session-name-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){document.getElementById('new-session-confirm-btn').click();}
+  if(e.key==='Escape'){document.getElementById('new-session-cancel-btn').click();}
 });
 document.getElementById('home-import-btn').addEventListener('click',()=>{
   document.getElementById('home-import-input').click();
