@@ -1,0 +1,2912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HMK Drawing Overlay Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f7;
+  --surface:#ffffff;
+  --surface2:#f5f6fa;
+  --hover:#eaecf4;
+  --border:#e0e4ef;
+  --border-strong:#c8cede;
+  --text:#111827;
+  --text2:#374151;
+  --muted:#6b7280;
+  --accent:#2563eb;
+  --accent-light:#eff6ff;
+  --accent-hover:#1d4ed8;
+  --l1:#2563eb;--l2:#dc2626;--l3:#16a34a;
+  --warn:#d97706;--warn-bg:#fffbeb;
+  --clash:#9333ea;--danger:#dc2626;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
+  --shadow-md:0 4px 12px rgba(0,0,0,.08),0 2px 6px rgba(0,0,0,.05);
+  --shadow-lg:0 12px 40px rgba(0,0,0,.12),0 4px 16px rgba(0,0,0,.06);
+  --radius:8px;--radius-sm:6px;--radius-lg:12px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;font-size:13px;
+  -webkit-font-smoothing:antialiased}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100vh}
+#header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:52px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  box-shadow:var(--shadow-sm);
+  flex-shrink:0;z-index:10;position:relative
+}
+#header h1{font-size:14px;font-weight:700;letter-spacing:.2px;color:var(--text)}
+#body{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  width:268px;flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  overflow-y:auto;display:flex;flex-direction:column;
+  box-shadow:2px 0 8px rgba(0,0,0,.04)
+}
+.sb-sect{border-bottom:1px solid var(--border);padding:12px 14px}
+.sb-title{
+  font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.8px;color:var(--muted);margin-bottom:10px;
+  display:flex;align-items:center;gap:6px
+}
+.sb-title::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── LAYER CARDS ── */
+.lcard{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:10px;margin-bottom:8px;
+  transition:box-shadow .15s
+}
+.lcard:hover{box-shadow:var(--shadow-sm)}
+.lcard-hdr{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.ldot{width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px rgba(0,0,0,.08)}
+.lname{flex:1;font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.lfile{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:7px}
+.lcard-btns{display:flex;gap:5px;margin-bottom:8px}
+.page-nav{
+  display:flex;align-items:center;gap:4px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-sm);padding:2px 6px;
+  font-size:11px;flex:1;justify-content:center
+}
+.page-nav button{background:none;border:none;color:var(--text2);cursor:pointer;font-size:14px;padding:0 3px;line-height:1;transition:color .1s}
+.page-nav button:hover{color:var(--accent)}
+.page-nav button:disabled{color:var(--border);cursor:default}
+.page-lbl{font-size:11px;color:var(--muted);min-width:50px;text-align:center;font-weight:500}
+.lvis{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-sm);width:30px;height:28px;
+  cursor:pointer;font-size:13px;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;transition:all .15s
+}
+.lvis:hover{background:var(--hover)}
+.lvis.off{background:var(--hover);opacity:.5}
+.lupload{
+  flex:1;background:var(--accent);border:none;
+  border-radius:var(--radius-sm);padding:5px 8px;
+  font-size:11px;font-weight:600;cursor:pointer;text-align:center;
+  transition:all .15s;color:#fff;letter-spacing:.1px
+}
+.lupload:hover{background:var(--accent-hover)}
+.lupload input{display:none}
+.lclear{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-sm);width:30px;height:28px;
+  cursor:pointer;font-size:14px;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all .15s
+}
+.lclear:hover{color:var(--danger);border-color:var(--danger);background:#fef2f2}
+
+/* sliders */
+.row2{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.row2 span{font-size:10px;color:var(--muted);font-weight:500}
+.row2 strong{font-size:10px;color:var(--text2);font-weight:600}
+input[type=range]{
+  width:100%;height:4px;-webkit-appearance:none;appearance:none;
+  background:var(--border);border-radius:2px;outline:none;margin-bottom:6px;cursor:pointer
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;border-radius:50%;
+  background:var(--accent);cursor:pointer;
+  box-shadow:0 0 0 3px rgba(37,99,235,.15)
+}
+input[type=range]::-moz-range-thumb{
+  width:14px;height:14px;border-radius:50%;
+  background:var(--accent);cursor:pointer;border:none;
+  box-shadow:0 0 0 3px rgba(37,99,235,.15)
+}
+/* offset rows */
+.off-row{display:flex;align-items:center;gap:5px;margin-bottom:4px}
+.off-lbl{font-size:10px;color:var(--muted);width:11px;font-weight:600}
+.off-val{font-size:10px;color:var(--text2);width:34px;text-align:right;font-weight:500}
+
+/* ── BUTTONS ── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  padding:6px 12px;border:1px solid var(--border);
+  border-radius:var(--radius-sm);background:var(--surface);
+  color:var(--text2);font-size:11px;font-weight:600;cursor:pointer;
+  transition:all .15s;width:100%;margin-bottom:5px;font-family:inherit;
+  box-shadow:var(--shadow-sm)
+}
+.btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(37,99,235,.3)}
+.btn.accent:hover{background:var(--accent-hover);border-color:var(--accent-hover);box-shadow:0 4px 12px rgba(37,99,235,.35)}
+.btn.warn{background:#f59e0b;border-color:#f59e0b;color:#fff;box-shadow:0 2px 8px rgba(245,158,11,.3)}
+.btn.warn:hover{background:#d97706;border-color:#d97706}
+.btn.clash{background:#9333ea;border-color:#9333ea;color:#fff;box-shadow:0 2px 8px rgba(147,51,234,.3)}
+.btn.clash:hover{background:#7c3aed;border-color:#7c3aed}
+.btn.sm{padding:4px 10px;font-size:10px;margin-bottom:0;width:auto;box-shadow:none}
+.btn-row{display:flex;gap:5px;margin-bottom:5px}
+.btn-row .btn{margin-bottom:0}
+
+/* ── MARKUP COLORS ── */
+.swatches{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.sw{width:20px;height:20px;border-radius:5px;border:2px solid transparent;cursor:pointer;transition:all .15s}
+.sw:hover{transform:scale(1.15)}
+.sw.active{border-color:var(--surface);box-shadow:0 0 0 2px var(--accent)}
+.sw-custom{height:26px;width:100%;border-radius:var(--radius-sm);border:1px solid var(--border);cursor:pointer;margin-bottom:6px}
+.sw-row{display:flex;gap:4px;margin-bottom:6px}
+.sw-opt{
+  flex:1;height:26px;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--radius-sm);
+  cursor:pointer;font-size:11px;font-weight:600;
+  color:var(--text2);transition:all .15s
+}
+.sw-opt:hover{border-color:var(--accent);color:var(--accent)}
+.sw-opt.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ── CLASH STATUS ── */
+.clash-info{
+  font-size:11px;color:var(--muted);margin-bottom:8px;
+  padding:7px 10px;background:var(--surface2);
+  border-radius:var(--radius-sm);border:1px solid var(--border);
+  font-weight:500
+}
+.clash-info strong{color:var(--clash)}
+
+/* ── RIGHT PANEL ── */
+#right{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#canvas-row{flex:1;display:flex;overflow:hidden}
+
+/* ── TOOLBAR ── */
+#toolbar{
+  display:flex;align-items:center;flex-wrap:nowrap;gap:3px;
+  padding:6px 12px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  box-shadow:0 1px 4px rgba(0,0,0,.05);
+  flex-shrink:0;overflow-x:auto
+}
+.tb{
+  width:30px;height:30px;
+  background:transparent;border:1px solid transparent;
+  border-radius:var(--radius-sm);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;position:relative;flex-shrink:0;
+  transition:all .12s;color:var(--text2)
+}
+.tb:hover{background:var(--hover);border-color:var(--border-strong);color:var(--accent)}
+.tb.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 6px rgba(37,99,235,.3)}
+.tb svg{pointer-events:none}
+.tb-sep{width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0}
+.tb-lbl{font-size:9.5px;font-weight:600;color:var(--muted);padding:0 4px;white-space:nowrap;flex-shrink:0;text-transform:uppercase;letter-spacing:.4px}
+/* tooltips */
+.tb[title]:hover::after{
+  content:attr(title);position:absolute;bottom:calc(100% + 8px);
+  left:50%;transform:translateX(-50%);
+  background:var(--text);color:#fff;font-size:10px;
+  padding:4px 8px;border-radius:5px;white-space:nowrap;
+  pointer-events:none;z-index:999;box-shadow:var(--shadow-md);
+  font-weight:500
+}
+
+/* ── CANVAS AREA ── */
+#canvas-area{
+  flex:1;position:relative;overflow:hidden;
+  background:var(--bg);cursor:crosshair;
+  background-image:
+    linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:40px 40px;
+  background-position:center center
+}
+#main-canvas{position:absolute;top:0;left:0;transform-origin:top left}
+#empty-msg{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  color:var(--muted);pointer-events:none;text-align:center;gap:10px
+}
+#empty-msg svg{opacity:.18}
+#empty-msg p{font-size:14px;font-weight:500}
+#empty-msg p:last-child{font-size:11px;font-weight:400}
+
+/* ── STATUS BAR ── */
+#status{
+  display:flex;align-items:center;gap:16px;
+  padding:3px 14px;background:var(--surface);
+  border-top:1px solid var(--border);
+  font-size:11px;color:var(--muted);
+  flex-shrink:0;height:26px;font-weight:500
+}
+#status strong{color:var(--text2);font-weight:600}
+#status-msg{margin-left:auto;color:var(--accent);font-weight:600}
+
+/* ── MODALS ── */
+.modal-bg{
+  position:fixed;inset:0;
+  background:rgba(17,24,39,.45);
+  backdrop-filter:blur(2px);
+  display:none;align-items:center;justify-content:center;z-index:9000
+}
+.modal-bg.open{display:flex}
+.modal{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:24px;
+  width:420px;max-width:94vw;
+  box-shadow:var(--shadow-lg)
+}
+.modal h3{font-size:16px;font-weight:700;margin-bottom:6px;color:var(--text)}
+.modal p{color:var(--muted);font-size:12px;line-height:1.6;margin-bottom:16px}
+.modal label{display:block;font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.modal input[type=number],.modal select{
+  width:100%;padding:8px 10px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);font-size:12px;
+  margin-bottom:14px;font-family:inherit;
+  transition:border-color .15s;outline:none
+}
+.modal input[type=number]:focus,.modal select:focus{border-color:var(--accent)}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.modal-btns button{
+  padding:8px 18px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all .15s
+}
+.modal-btns .cancel-btn{background:var(--surface2);color:var(--text2)}
+.modal-btns .cancel-btn:hover{border-color:var(--border-strong);background:var(--hover)}
+.modal-btns .ok-btn{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 6px rgba(37,99,235,.25)}
+.modal-btns .ok-btn:hover{background:var(--accent-hover)}
+
+/* ── TEXT INPUT FLOAT ── */
+#text-float{
+  position:fixed;display:none;z-index:500;
+  background:var(--surface);border:2px solid var(--accent);
+  border-radius:var(--radius);padding:8px;
+  box-shadow:var(--shadow-lg);min-width:190px
+}
+#text-float textarea{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);padding:6px;
+  font-size:12px;font-family:inherit;resize:both;
+  min-width:160px;min-height:60px;outline:none;width:100%;
+  transition:border-color .15s
+}
+#text-float textarea:focus{border-color:var(--accent)}
+#text-float-btns{display:flex;gap:5px;margin-top:6px}
+#text-float-btns button{
+  flex:1;padding:5px;background:var(--accent);
+  border:none;border-radius:var(--radius-sm);
+  color:#fff;font-size:11px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all .15s
+}
+#text-float-btns button:hover{background:var(--accent-hover)}
+#text-float-btns .tf-cancel{background:var(--surface2);border:1px solid var(--border);color:var(--text2)}
+#text-float-btns .tf-cancel:hover{background:var(--hover)}
+
+/* ── HMK LOGO ── */
+#hmk-logo{display:flex;align-items:center;user-select:none}
+
+/* ── DRAWER ── */
+#drawer{
+  width:0;flex-shrink:0;background:var(--surface);
+  border-left:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow:hidden;transition:width .2s cubic-bezier(.4,0,.2,1)
+}
+#drawer.open{width:400px}
+#drawer-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;padding:0 8px}
+.dtab{
+  padding:9px 14px;font-size:11px;font-weight:600;cursor:pointer;
+  border-bottom:2px solid transparent;color:var(--muted);
+  white-space:nowrap;transition:all .15s;flex-shrink:0
+}
+.dtab:hover{color:var(--text2)}
+.dtab.active{color:var(--accent);border-bottom-color:var(--accent)}
+#drawer-canvas-wrap{flex:1;overflow:auto;background:var(--bg);position:relative}
+#drawer-canvas{display:block}
+#drawer-nav{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  padding:8px;border-top:1px solid var(--border);
+  flex-shrink:0;background:var(--surface)
+}
+#drawer-nav button{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text2);border-radius:var(--radius-sm);
+  width:28px;height:28px;cursor:pointer;font-size:15px;transition:all .15s
+}
+#drawer-nav button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+#drawer-nav button:disabled{opacity:.3;cursor:default}
+#drawer-page-lbl{font-size:11px;color:var(--muted);min-width:70px;text-align:center;font-weight:500}
+#drawer-layer-lbl{font-size:11px;color:var(--text2);font-weight:700}
+
+/* ── SESSIONS MODAL ── */
+#modal-sessions .modal{width:540px;max-height:82vh;display:flex;flex-direction:column}
+.session-list{flex:1;overflow-y:auto;margin:0 -2px;padding:0 2px}
+.session-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:var(--radius);
+  border:1px solid var(--border);margin-bottom:6px;
+  background:var(--surface2);transition:all .15s
+}
+.session-item:hover{border-color:var(--accent);background:var(--accent-light);box-shadow:var(--shadow-sm)}
+.session-meta{flex:1;min-width:0}
+.session-name{font-size:12px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.session-date{font-size:10px;color:var(--muted);margin-top:2px;font-weight:500}
+.session-markups{font-size:10px;color:var(--accent);margin-top:2px;font-weight:600}
+.s-load{
+  background:var(--accent);border:none;border-radius:var(--radius-sm);
+  color:#fff;padding:5px 12px;font-size:11px;font-weight:600;
+  cursor:pointer;transition:all .15s
+}
+.s-load:hover{background:var(--accent-hover)}
+.s-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 5px;transition:color .15s}
+.s-del:hover{color:var(--danger)}
+.session-name-input{
+  background:var(--surface2);border:2px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text);
+  padding:7px 10px;font-size:12px;width:100%;margin-bottom:10px;
+  font-family:inherit;transition:border-color .15s;outline:none
+}
+.session-name-input:focus{border-color:var(--accent)}
+
+/* ── HEADER BUTTONS ── */
+.hdr-btn{
+  display:flex;align-items:center;gap:5px;padding:6px 12px;
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-sm);color:var(--text2);
+  font-size:11px;font-weight:600;cursor:pointer;
+  transition:all .15s;font-family:inherit;box-shadow:var(--shadow-sm)
+}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-light)}
+.hdr-btn.green{border-color:#16a34a;color:#16a34a}
+.hdr-btn.green:hover{background:#f0fdf4;border-color:#16a34a}
+#header-btns{display:flex;gap:8px;align-items:center}
+
+/* ── AUTOSAVE DOT ── */
+#autosave-dot{width:7px;height:7px;border-radius:50%;background:#16a34a;display:inline-block;margin-left:4px;opacity:0;transition:opacity .3s}
+#autosave-dot.flash{opacity:1}
+
+/* ── CALLOUT SELECTED ── */
+.sel-handle{cursor:se-resize}
+
+/* scrollbar */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:10px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* align highlight flash */
+@keyframes alignFlash{0%{opacity:.9}100%{opacity:0}}
+.align-dot{position:absolute;width:14px;height:14px;border-radius:50%;background:#f59e0b;border:2px solid #fff;pointer-events:none;transform:translate(-50%,-50%);animation:alignFlash 2s forwards;box-shadow:0 0 8px rgba(245,158,11,.6)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HEADER -->
+<div id="header">
+  <h1>Drawing Overlay Tool</h1>
+  <div id="header-btns">
+    <button class="hdr-btn" id="sessions-btn" title="Save &amp; load review sessions">💾 Sessions<span id="autosave-dot"></span></button>
+    <button class="hdr-btn green" id="export-pdf-btn" title="Export current view to PDF">🖨 Export PDF</button>
+  </div>
+  <div id="hmk-logo">
+    <div style="background:#000;color:#fff;font-weight:800;font-size:13px;letter-spacing:3px;padding:6px 13px;border-radius:6px;font-family:'Inter',system-ui,sans-serif;line-height:1;user-select:none">HMK</div>
+  </div>
+</div>
+
+<div id="body">
+<!-- SIDEBAR -->
+<div id="sidebar">
+
+  <!-- LAYERS -->
+  <div class="sb-sect">
+    <div class="sb-title">Drawing Layers</div>
+    <div id="layers-container"></div>
+  </div>
+
+  <!-- ALIGNMENT -->
+  <div class="sb-sect">
+    <div class="sb-title">Alignment</div>
+    <button class="btn warn" id="auto-align-2-btn" title="Detects wall perimeters and aligns Sheet 2 to Sheet 1 via edge cross-correlation">⚡ Align Walls: Sheet 2 → 1</button>
+    <button class="btn warn" id="auto-align-3-btn" title="Detects wall perimeters and aligns Sheet 3 to Sheet 1 via edge cross-correlation">⚡ Align Walls: Sheet 3 → 1</button>
+    <button class="btn" id="point-align-btn">🎯 Point Align (click same point)</button>
+    <button class="btn sm" id="reset-offsets-btn" style="width:100%;margin-top:2px">↺ Reset All Offsets</button>
+  </div>
+
+  <!-- CLASH DETECTION -->
+  <div class="sb-sect">
+    <div class="sb-title">Clash Detection</div>
+    <div class="clash-info" id="clash-info">No clash analysis run</div>
+    <div class="row2"><span>Sensitivity</span><strong id="clash-thresh-lbl">60</strong></div>
+    <input type="range" id="clash-thresh" min="20" max="180" value="60">
+    <div class="btn-row">
+      <button class="btn clash" id="detect-clashes-btn" style="flex:2;margin:0">🔴 Detect Clashes</button>
+      <button class="btn sm" id="toggle-clashes-btn" style="flex:1;width:auto">Hide</button>
+    </div>
+    <button class="btn sm" id="clear-clashes-btn" style="width:100%;margin-top:5px">Clear</button>
+  </div>
+
+  <!-- CLEAR MARKUPS -->
+  <div class="sb-sect">
+    <button class="btn" style="background:var(--danger);border-color:var(--danger);color:#fff" id="clear-markups-btn">🗑 Clear All Markups</button>
+  </div>
+
+</div><!-- /sidebar -->
+
+<!-- RIGHT PANEL -->
+<div id="right">
+
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <span class="tb-lbl">Navigate</span>
+    <button class="tb active" data-tool="select" title="Select / Pan (V)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 2 L2 11 L5 8 L7 13 L9 12 L7 7 L11 7 Z" fill="currentColor"/></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <span class="tb-lbl">Annotate</span>
+    <button class="tb" data-tool="text" title="Text Box (T)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><text x="1" y="12" font-size="13" font-weight="bold" fill="currentColor" font-family="serif">T</text></svg>
+    </button>
+    <button class="tb" data-tool="callout" title="Callout (U)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="10" height="7" rx="1.5" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M3 8 L2 12 L7 8" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+    </button>
+    <button class="tb" data-tool="highlight" title="Highlight (H)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="4" width="12" height="6" rx="1" fill="currentColor" opacity=".6"/><line x1="1" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width=".8"/><line x1="1" y1="10" x2="13" y2="10" stroke="currentColor" stroke-width=".8"/></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <span class="tb-lbl">Draw</span>
+    <button class="tb" data-tool="pen" title="Pen / Freehand (P)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 11 Q4 6 7 5 Q10 4 12 2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tb" data-tool="line" title="Line (L)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="12" x2="12" y2="2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tb" data-tool="arrow" title="Arrow (A)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><line x1="2" y1="12" x2="11" y2="3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M11 3 L6 3 L11 8 Z" fill="currentColor"/></svg>
+    </button>
+    <button class="tb" data-tool="polyline" title="Polyline (O) — dbl-click to end">
+      <svg width="14" height="14" viewBox="0 0 14 14"><polyline points="1,12 4,6 8,9 12,2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <span class="tb-lbl">Shapes</span>
+    <button class="tb" data-tool="rect" title="Rectangle (R)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1.5" y="3" width="11" height="8" rx="1" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+    </button>
+    <button class="tb" data-tool="ellipse" title="Ellipse (E)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><ellipse cx="7" cy="7" rx="5.5" ry="4" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+    </button>
+    <button class="tb" data-tool="cloud" title="Cloud / Revision Cloud (C)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M1 9 Q1 7 3 7 Q3 5 5 5 Q5 3 7 3 Q9 3 9 5 Q11 5 11 7 Q13 7 13 9 Q13 11 11 11 L3 11 Q1 11 1 9Z" stroke="currentColor" stroke-width="1.3" fill="none"/></svg>
+    </button>
+    <button class="tb" data-tool="polygon" title="Polygon (G) — dbl-click to close">
+      <svg width="14" height="14" viewBox="0 0 14 14"><polygon points="7,1 13,5 11,12 3,12 1,5" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <span class="tb-lbl">Measure</span>
+    <button class="tb" data-tool="dimension" title="Dimension / Linear (D)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><line x1="1" y1="7" x2="13" y2="7" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="4" x2="1" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="13" y1="4" x2="13" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
+    <button class="tb" data-tool="area" title="Area Measurement (M) — dbl-click to close">
+      <svg width="14" height="14" viewBox="0 0 14 14"><polygon points="7,1 13,6 10,13 4,13 1,6" stroke="currentColor" stroke-width="1.3" fill="currentColor" fill-opacity=".25"/></svg>
+    </button>
+    <button class="tb" data-tool="count" title="Count Marker (N)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" stroke="currentColor" stroke-width="1.3" fill="none"/><text x="7" y="10.5" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">1</text></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb" id="undo-btn" title="Undo (Ctrl+Z)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M2 7 Q2 3 7 3 Q11 3 11 7 Q11 11 7 11" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M2 4 L2 7 L5 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button class="tb" id="redo-btn" title="Redo (Ctrl+Y)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><path d="M12 7 Q12 3 7 3 Q3 3 3 7 Q3 11 7 11" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M12 4 L12 7 L9 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb" id="zoom-in-btn" title="Zoom In (+)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="6" x2="8" y2="6" stroke="currentColor" stroke-width="1.4"/><line x1="6" y1="4" x2="6" y2="8" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+    <button class="tb" id="zoom-out-btn" title="Zoom Out (-)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.4" fill="none"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="4" y1="6" x2="8" y2="6" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+    <button class="tb" id="fit-btn" title="Fit to Window (F)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M4 1 L1 1 L1 4M10 1 L13 1 L13 4M4 13 L1 13 L1 10M10 13 L13 13 L13 10" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb" data-tool="mask" title="Mask / Hide Region (K) — draw a box to hide title blocks or site notes">
+      <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.4" fill="none"/><line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2,2"/><rect x="7" y="7" width="6" height="6" rx="1" fill="currentColor" opacity=".4"/></svg>
+    </button>
+    <button class="tb" data-tool="snip" title="Snip / Crop Region (X) — capture a region as a movable overlay">
+      <svg width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="1" stroke="currentColor" stroke-width="1.4" fill="none" stroke-dasharray="3,2"/><line x1="1" y1="4" x2="13" y2="4" stroke="currentColor" stroke-width="1"/><line x1="4" y1="1" x2="4" y2="13" stroke="currentColor" stroke-width="1"/><circle cx="10" cy="10" r="2.5" fill="currentColor" opacity=".7"/></svg>
+    </button>
+    <button class="tb" id="clear-masks-btn" title="Clear all masks from all layers">
+      <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.4" fill="none"/><line x1="4" y1="4" x2="10" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="10" y1="4" x2="4" y2="10" stroke="currentColor" stroke-width="1.5"/></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <button class="tb" id="drawer-toggle-btn" title="Toggle Drawing Drawer (W)">
+      <svg width="14" height="14" viewBox="0 0 14 14"><rect x="1" y="1" width="12" height="12" rx="1" stroke="currentColor" stroke-width="1.3" fill="none"/><rect x="8" y="1" width="5" height="12" rx="0" fill="currentColor" opacity=".25"/><line x1="8" y1="1" x2="8" y2="13" stroke="currentColor" stroke-width="1.3"/></svg>
+    </button>
+    <div class="tb-sep"></div>
+    <span class="tb-lbl">Color</span>
+    <div id="color-swatches" style="display:flex;gap:3px;align-items:center;flex-shrink:0;flex-wrap:nowrap">
+      <div class="sw active" data-color="#FFD700" style="background:#FFD700;width:18px;height:18px;border-radius:3px" title="Yellow"></div>
+      <div class="sw" data-color="#F44336" style="background:#F44336;width:18px;height:18px;border-radius:3px" title="Red"></div>
+      <div class="sw" data-color="#4CAF50" style="background:#4CAF50;width:18px;height:18px;border-radius:3px" title="Green"></div>
+      <div class="sw" data-color="#2196F3" style="background:#2196F3;width:18px;height:18px;border-radius:3px" title="Blue"></div>
+      <div class="sw" data-color="#FF9800" style="background:#FF9800;width:18px;height:18px;border-radius:3px" title="Orange"></div>
+      <div class="sw" data-color="#E91E63" style="background:#E91E63;width:18px;height:18px;border-radius:3px" title="Pink"></div>
+      <div class="sw" data-color="#00BCD4" style="background:#00BCD4;width:18px;height:18px;border-radius:3px" title="Cyan"></div>
+      <div class="sw" data-color="#FFFFFF" style="background:#FFFFFF;width:18px;height:18px;border-radius:3px;border:1px solid #555" title="White"></div>
+    </div>
+    <input type="color" id="custom-color" value="#FFD700" title="Custom Color" style="width:28px;height:28px;padding:2px;border:1px solid var(--border);border-radius:4px;background:none;cursor:pointer;flex-shrink:0">
+    <div class="tb-sep"></div>
+    <span class="tb-lbl">Stroke</span>
+    <div id="stroke-btns" style="display:flex;gap:2px;flex-shrink:0">
+      <button class="sw-opt active" data-w="1" style="width:24px;height:28px;font-size:10px;flex:none">1</button>
+      <button class="sw-opt" data-w="2" style="width:24px;height:28px;font-size:10px;flex:none">2</button>
+      <button class="sw-opt" data-w="3" style="width:24px;height:28px;font-size:10px;flex:none">3</button>
+      <button class="sw-opt" data-w="5" style="width:24px;height:28px;font-size:10px;flex:none">5</button>
+    </div>
+    <div class="tb-sep"></div>
+    <span class="tb-lbl">Fill</span>
+    <input type="range" id="fill-opacity" min="0" max="80" value="20" style="width:56px;flex-shrink:0">
+    <strong id="fill-opacity-lbl" style="font-size:10px;color:var(--text);flex-shrink:0;min-width:26px">20%</strong>
+    <div class="tb-sep"></div>
+    <span class="tb-lbl">Scale</span>
+    <strong id="scale-display" style="font-size:10px;color:var(--text);flex-shrink:0;white-space:nowrap;padding:0 4px">Not set</strong>
+    <button class="tb" id="set-scale-btn" title="Set Scale — calibrate measurements" style="width:auto;padding:0 8px;font-size:11px;white-space:nowrap">📏 Set</button>
+    <button class="tb" id="clear-scale-btn" title="Clear Scale" style="width:auto;padding:0 8px;font-size:11px">✕</button>
+  </div>
+
+  <!-- CANVAS ROW: canvas + drawer side by side -->
+  <div id="canvas-row" style="flex:1;display:flex;overflow:hidden">
+  <!-- CANVAS -->
+  <div id="canvas-area">
+    <canvas id="main-canvas"></canvas>
+    <div id="empty-msg">
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none"><rect x="8" y="4" width="36" height="48" rx="3" stroke="#9ca3af" stroke-width="2"/><path d="M44 4 L56 16 L56 52 L20 52 L20 4" stroke="#9ca3af" stroke-width="2" fill="none"/><path d="M44 4 L44 16 L56 16" stroke="#9ca3af" stroke-width="2" fill="none"/><line x1="14" y1="16" x2="34" y2="16" stroke="#9ca3af" stroke-width="1.5"/><line x1="14" y1="22" x2="34" y2="22" stroke="#9ca3af" stroke-width="1.5"/><line x1="14" y1="28" x2="28" y2="28" stroke="#9ca3af" stroke-width="1.5"/></svg>
+      <p>Load PDF drawings in the panel to begin</p>
+      <p style="font-size:11px">Supports up to 3 layers with multi-page navigation</p>
+    </div>
+  </div>
+
+  <!-- DRAWING DRAWER (side panel alongside canvas, inside canvas-row) -->
+  <div id="drawer">
+    <div id="drawer-tabs"></div>
+    <div id="drawer-canvas-wrap">
+      <canvas id="drawer-canvas"></canvas>
+    </div>
+    <div id="drawer-nav">
+      <span id="drawer-layer-lbl">—</span>
+      <button id="dprev-btn" disabled>‹</button>
+      <span id="drawer-page-lbl">— / —</span>
+      <button id="dnext-btn" disabled>›</button>
+    </div>
+  </div>
+  </div><!-- /canvas-row -->
+
+  <!-- STATUS BAR -->
+  <div id="status">
+    <span>Tool: <strong id="st-tool">Select</strong></span>
+    <span>X:<strong id="st-x">—</strong> Y:<strong id="st-y">—</strong></span>
+    <span>Zoom: <strong id="st-zoom">100</strong>%</span>
+    <span id="st-scale">Scale: not set</span>
+    <span id="st-hint" style="color:var(--warn)"></span>
+    <span id="status-msg"></span>
+  </div>
+
+</div><!-- /right -->
+</div><!-- /body -->
+</div><!-- /app -->
+
+<!-- SESSIONS MODAL -->
+<div class="modal-bg" id="modal-sessions">
+  <div class="modal" style="width:520px">
+    <h3>💾 Review Sessions</h3>
+    <p>Save your current markups and layer settings, then reload them later. PDF files are not stored — only markups and alignment offsets.</p>
+    <div style="margin-bottom:10px">
+      <input type="text" class="session-name-input" id="session-name-input" placeholder="Session name (e.g. &quot;Phase 2 Review&quot;)…">
+      <div class="btn-row">
+        <button class="btn accent" id="save-new-session-btn" style="margin:0">💾 Save New Session</button>
+        <button class="btn" id="export-session-btn" style="margin:0">⬇ Export to File</button>
+        <label class="btn" style="margin:0;cursor:pointer">⬆ Import File<input type="file" id="import-session-input" accept=".json,.hmkrev" style="display:none"></label>
+      </div>
+    </div>
+    <div class="sb-title" style="margin-bottom:6px">Saved Sessions</div>
+    <div class="session-list" id="session-list" style="max-height:280px;overflow-y:auto;padding:2px 4px"></div>
+    <div class="modal-btns" style="margin-top:12px">
+      <button class="cancel-btn" onclick="closeModal('modal-sessions')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEXT FLOAT -->
+<div id="text-float">
+  <textarea id="text-ta" placeholder="Enter comment…" rows="3"></textarea>
+  <div id="text-float-btns">
+    <button id="tf-ok">Add</button>
+    <button class="tf-cancel" id="tf-cancel">Cancel</button>
+  </div>
+</div>
+
+<!-- SCALE MODAL STEP 1 -->
+<div class="modal-bg" id="modal-scale1">
+  <div class="modal">
+    <h3>📏 Set Measurement Scale — Step 1</h3>
+    <p>Click <strong>Start</strong>, then click <strong>two points</strong> on the drawing that represent a known real-world distance (e.g., a grid line of 20 feet).</p>
+    <div class="modal-btns">
+      <button class="cancel-btn" onclick="closeModal('modal-scale1')">Cancel</button>
+      <button class="ok-btn" id="scale1-ok">Start Picking Points</button>
+    </div>
+  </div>
+</div>
+
+<!-- SCALE MODAL STEP 2 -->
+<div class="modal-bg" id="modal-scale2">
+  <div class="modal">
+    <h3>📏 Set Measurement Scale — Step 2</h3>
+    <p>Enter the real-world distance for the line you just drew.</p>
+    <label>Distance</label>
+    <input type="number" id="scale-dist" placeholder="e.g. 20" min="0.001" step="any">
+    <label>Unit</label>
+    <select id="scale-unit">
+      <option value="ft">Feet (ft)</option>
+      <option value="in">Inches (in)</option>
+      <option value="m">Meters (m)</option>
+      <option value="cm">Centimeters (cm)</option>
+      <option value="mm">Millimeters (mm)</option>
+    </select>
+    <div class="modal-btns">
+      <button class="cancel-btn" onclick="closeModal('modal-scale2')">Cancel</button>
+      <button class="ok-btn" id="scale2-ok">Set Scale</button>
+    </div>
+  </div>
+</div>
+
+<!-- POINT ALIGN MODAL -->
+<div class="modal-bg" id="modal-palign">
+  <div class="modal">
+    <h3>🎯 Point Alignment</h3>
+    <p>Select which two layers to align, then click the <strong>same landmark point</strong> on both drawings (e.g., a column intersection or corner). The second layer will be offset to match the first.</p>
+    <label>Reference Layer (stays fixed)</label>
+    <select id="palign-ref">
+      <option value="0">Sheet 1 (Blue)</option>
+      <option value="1">Sheet 2 (Red)</option>
+      <option value="2">Sheet 3 (Green)</option>
+    </select>
+    <label>Target Layer (will be moved)</label>
+    <select id="palign-tgt">
+      <option value="0">Sheet 1 (Blue)</option>
+      <option value="1" selected>Sheet 2 (Red)</option>
+      <option value="2">Sheet 3 (Green)</option>
+    </select>
+    <div class="modal-btns">
+      <button class="cancel-btn" onclick="closeModal('modal-palign')">Cancel</button>
+      <button class="ok-btn" id="palign-ok">Start — Click Reference Point</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUTO-ALIGN PROGRESS -->
+<div class="modal-bg" id="modal-aligning">
+  <div class="modal" style="text-align:center">
+    <h3 style="margin-bottom:12px">⚡ Aligning Wall Perimeters…</h3>
+    <p id="align-progress-msg">Detecting wall edges…</p>
+    <div style="margin-top:12px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+      <div id="align-progress-bar" style="height:100%;background:var(--warn);width:0%;transition:width .3s;border-radius:2px"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ════════════════════════════════════════════════
+// INDEXED DB — PDF binary storage for session restore
+// ════════════════════════════════════════════════
+function openPdfDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open('hmk-drawings-db',1);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore('pdfs');
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=()=>rej(new Error('IDB unavailable'));
+  });
+}
+async function idbPut(key,val){
+  try{
+    const db=await openPdfDB();
+    return new Promise((res,rej)=>{
+      const tx=db.transaction('pdfs','readwrite');
+      tx.objectStore('pdfs').put(val,key);
+      tx.oncomplete=()=>res();
+      tx.onerror=()=>rej();
+    });
+  }catch(e){}
+}
+async function idbGet(key){
+  try{
+    const db=await openPdfDB();
+    return new Promise((res,rej)=>{
+      const tx=db.transaction('pdfs','readonly');
+      const req=tx.objectStore('pdfs').get(key);
+      req.onsuccess=()=>res(req.result);
+      req.onerror=()=>rej();
+    });
+  }catch(e){return null;}
+}
+async function idbDelete(key){
+  if(!key)return;
+  try{
+    const db=await openPdfDB();
+    const tx=db.transaction('pdfs','readwrite');
+    tx.objectStore('pdfs').delete(key);
+  }catch(e){}
+}
+
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+const LAYER_COLORS=['#4a8ef7','#f74a4a','#3ecf70'];
+const LAYER_NAMES=['Sheet 1','Sheet 2','Sheet 3'];
+
+const S={
+  layers:LAYER_COLORS.map((c,i)=>({
+    id:i,name:LAYER_NAMES[i],color:c,
+    opacity:.85,visible:true,
+    pdfDoc:null,totalPages:0,currentPage:1,
+    renderedCanvas:null,
+    offsetX:0,offsetY:0,scaleRatio:1.0,rotation:0,masks:[]
+  })),
+  markups:[],undo:[],redo:[],
+  tool:'select',color:'#FFD700',strokeW:1,fillOpacity:.2,
+  zoom:1,panX:0,panY:0,
+  cW:0,cH:0,
+  scale:null,
+  clashCanvas:null,showClashes:true,clashCount:0,
+  // drawing
+  drawing:false,drawP1:null,curMarkup:null,
+  polyPts:[],penPts:[],
+  countN:1,
+  // calibration
+  calibMode:false,calibPts:[],
+  // point-align
+  palignMode:false,palignStep:0,palignRef:0,palignTgt:1,palignP1:null,
+  // panning
+  panning:false,panStart:null,
+  mousePos:{x:0,y:0},
+  // pending callout waiting for text input
+  pendingCallout:null
+};
+
+// ════════════════════════════════════════════════
+// CANVAS
+// ════════════════════════════════════════════════
+const canvas=document.getElementById('main-canvas');
+const ctx=canvas.getContext('2d');
+const area=document.getElementById('canvas-area');
+
+function screenToCanvas(ex,ey){
+  const r=area.getBoundingClientRect();
+  return{x:(ex-r.left-S.panX)/S.zoom,y:(ey-r.top-S.panY)/S.zoom};
+}
+function canvasToScreen(cx,cy){
+  const r=area.getBoundingClientRect();
+  return{x:cx*S.zoom+S.panX+r.left,y:cy*S.zoom+S.panY+r.top};
+}
+function applyTransform(){
+  canvas.style.transform=`translate(${S.panX}px,${S.panY}px) scale(${S.zoom})`;
+  document.getElementById('st-zoom').textContent=Math.round(S.zoom*100);
+}
+function updateCanvasSize(){
+  let w=100,h=100;
+  S.layers.forEach(l=>{
+    if(l.renderedCanvas){
+      const _sr=l.scaleRatio||1,_sw=Math.round(l.renderedCanvas.width*_sr),_sh=Math.round(l.renderedCanvas.height*_sr);
+      const _is90=(Math.abs(Math.round(l.rotation||0)%180)===90);
+      const _bw=_is90?_sh:_sw, _bh=_is90?_sw:_sh;
+      w=Math.max(w,_bw+Math.abs(l.offsetX)+200);
+      h=Math.max(h,_bh+Math.abs(l.offsetY)+200);
+    }
+  });
+  if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;S.cW=w;S.cH=h;}
+}
+function fitToWindow(){
+  if(!S.cW)return;
+  const ww=area.clientWidth-40,wh=area.clientHeight-40;
+  S.zoom=Math.min(ww/S.cW,wh/S.cH,2);
+  S.panX=Math.max(0,(area.clientWidth-S.cW*S.zoom)/2);
+  S.panY=Math.max(0,(area.clientHeight-S.cH*S.zoom)/2);
+  applyTransform();
+}
+
+// ════════════════════════════════════════════════
+// REDRAW
+// ════════════════════════════════════════════════
+function redraw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#e8ecf4';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  // layers
+  S.layers.forEach(l=>{
+    if(l.visible&&l.renderedCanvas){
+      ctx.save();ctx.globalAlpha=l.opacity;
+      const sr=l.scaleRatio||1;
+      const sw=Math.round(l.renderedCanvas.width*sr),sh=Math.round(l.renderedCanvas.height*sr);
+      const rot=(l.rotation||0)*Math.PI/180;
+      if(rot===0){
+        ctx.drawImage(l.renderedCanvas,l.offsetX,l.offsetY,sw,sh);
+      }else{
+        // For 90/270° the bounding box flips; pivot around the offset top-left corner
+        const is90=(Math.abs(Math.round(l.rotation)%180)===90);
+        const bw=is90?sh:sw, bh=is90?sw:sh; // effective bounding box
+        ctx.translate(l.offsetX+bw/2, l.offsetY+bh/2);
+        ctx.rotate(rot);
+        ctx.drawImage(l.renderedCanvas,-sw/2,-sh/2,sw,sh);
+      }
+      ctx.restore();
+      // masks: paint background-color rectangles to hide title blocks / notes
+      // m.x,m.y,m.w,m.h are fractions of the layer's local (unrotated) canvas
+      if(l.masks&&l.masks.length){
+        const sr2=l.scaleRatio||1;
+        const sw2=Math.round(l.renderedCanvas.width*sr2);
+        const sh2=Math.round(l.renderedCanvas.height*sr2);
+        const rot2=(l.rotation||0)*Math.PI/180;
+        const is90b=(Math.abs(Math.round(l.rotation||0)%180)===90);
+        const bw2=is90b?sh2:sw2, bh2=is90b?sw2:sh2;
+        ctx.save();
+        ctx.fillStyle='#e8ecf4';
+        if(rot2===0){
+          l.masks.forEach(m=>{
+            ctx.fillRect(l.offsetX+m.x*sw2,l.offsetY+m.y*sh2,m.w*sw2,m.h*sh2);
+          });
+        } else {
+          // Apply same transform as layer so mask aligns with rotated content
+          ctx.translate(l.offsetX+bw2/2,l.offsetY+bh2/2);
+          ctx.rotate(rot2);
+          l.masks.forEach(m=>{
+            // Map local fractions to canvas-relative coords (centered)
+            ctx.fillRect(m.x*sw2-sw2/2,m.y*sh2-sh2/2,m.w*sw2,m.h*sh2);
+          });
+        }
+        ctx.restore();
+      }
+    }
+  });
+  // clash overlay
+  if(S.showClashes&&S.clashCanvas){
+    ctx.save();ctx.globalAlpha=.65;
+    ctx.drawImage(S.clashCanvas,0,0);
+    ctx.restore();
+  }
+  // markups
+  S.markups.forEach(m=>drawMarkup(m));
+  if(S.curMarkup&&S.curMarkup.type!=='mask'&&S.curMarkup.type!=='snip')drawMarkup(S.curMarkup);
+  // mask/snip preview: dashed rectangle
+  if(S.curMarkup&&(S.curMarkup.type==='mask'||S.curMarkup.type==='snip')){
+    ctx.save();
+    ctx.strokeStyle=S.curMarkup.type==='snip'?'#4a8ef7':'#dc2626';
+    ctx.lineWidth=1.5/S.zoom;ctx.setLineDash([5/S.zoom,3/S.zoom]);
+    const px=Math.min(S.curMarkup.x1,S.curMarkup.x2),py=Math.min(S.curMarkup.y1,S.curMarkup.y2);
+    const pw=Math.abs(S.curMarkup.x2-S.curMarkup.x1),ph=Math.abs(S.curMarkup.y2-S.curMarkup.y1);
+    if(S.curMarkup.type==='snip'){
+      ctx.globalAlpha=0.25;ctx.fillStyle='#4a8ef7';ctx.fillRect(px,py,pw,ph);ctx.globalAlpha=1;
+    }
+    ctx.strokeRect(px,py,pw,ph);
+    ctx.restore();
+  }
+  // selection overlay
+  _selZones={del:null,resize:null};
+  if(S.selectedIdx>=0&&S.selectedIdx<S.markups.length){
+    drawSelectionOverlay(S.markups[S.selectedIdx]);
+  }
+  // poly preview
+  if((S.tool==='polyline'||S.tool==='polygon'||S.tool==='area')&&S.polyPts.length>0){
+    drawPolyPreview(S.polyPts,S.mousePos,S.tool==='polygon'||S.tool==='area');
+  }
+  // pen preview
+  if(S.tool==='pen'&&S.drawing&&S.penPts.length>1){
+    ctx.save();ctx.strokeStyle=S.color;ctx.lineWidth=S.strokeW;
+    ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();ctx.moveTo(S.penPts[0].x,S.penPts[0].y);
+    S.penPts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+    ctx.stroke();ctx.restore();
+  }
+  // calibration line
+  if(S.calibMode&&S.calibPts.length>0){
+    const p1=S.calibPts[0],p2=S.calibPts[1]||S.mousePos;
+    ctx.save();ctx.strokeStyle='#FFD700';ctx.lineWidth=2;ctx.setLineDash([6,3]);
+    ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();
+    ctx.setLineDash([]);
+    drawDot(p1.x,p1.y,'#FFD700');
+    if(S.calibPts[1])drawDot(p2.x,p2.y,'#FFD700');
+    ctx.restore();
+  }
+  // point-align preview
+  if(S.palignMode&&S.palignP1){
+    const p=S.palignP1;
+    ctx.save();ctx.strokeStyle='#FFD700';ctx.lineWidth=2;ctx.setLineDash([4,3]);
+    ctx.beginPath();ctx.arc(p.x,p.y,12,0,Math.PI*2);ctx.stroke();
+    ctx.setLineDash([]);
+    drawDot(p.x,p.y,'#FFD700');ctx.restore();
+  }
+}
+
+function drawDot(x,y,color){
+  ctx.save();ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();ctx.restore();
+}
+
+// ════════════════════════════════════════════════
+// DRAW MARKUP
+// ════════════════════════════════════════════════
+function drawMarkup(m){
+  ctx.save();
+  ctx.strokeStyle=m.color;ctx.fillStyle=m.color;
+  ctx.lineWidth=m.sw||1;ctx.lineCap='round';ctx.lineJoin='round';
+  const fi=m.fo!=null?m.fo:S.fillOpacity;
+  const x1=m.x1,y1=m.y1,x2=m.x2??m.x1,y2=m.y2??m.y1;
+
+  switch(m.type){
+    case'rect':{
+      const x=Math.min(x1,x2),y=Math.min(y1,y2),w=Math.abs(x2-x1),h=Math.abs(y2-y1);
+      ctx.beginPath();ctx.rect(x,y,w,h);
+      ctx.globalAlpha=fi;ctx.fill();ctx.globalAlpha=1;ctx.stroke();break;
+    }
+    case'ellipse':{
+      const cx=(x1+x2)/2,cy=(y1+y2)/2,rx=Math.abs(x2-x1)/2,ry=Math.abs(y2-y1)/2;
+      ctx.beginPath();ctx.ellipse(cx,cy,Math.max(rx,.5),Math.max(ry,.5),0,0,Math.PI*2);
+      ctx.globalAlpha=fi;ctx.fill();ctx.globalAlpha=1;ctx.stroke();break;
+    }
+    case'highlight':{
+      const x=Math.min(x1,x2),y=Math.min(y1,y2),w=Math.abs(x2-x1),h=Math.abs(y2-y1);
+      ctx.globalAlpha=.38;ctx.fillRect(x,y,w,h);ctx.globalAlpha=1;break;
+    }
+    case'line':
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();break;
+    case'arrow':drawArrow(x1,y1,x2,y2);break;
+    case'cloud':drawCloud(x1,y1,x2,y2);break;
+    case'dimension':drawDimension(m);break;
+    case'text':drawText(m);break;
+    case'callout':drawCallout(m);break;
+    case'polyline':
+    case'polygon':
+    case'area':
+      if(m.pts&&m.pts.length>1){
+        ctx.beginPath();ctx.moveTo(m.pts[0].x,m.pts[0].y);
+        m.pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+        if(m.type==='polygon'||m.type==='area')ctx.closePath();
+        if(m.type==='area'||m.type==='polygon'){
+          ctx.globalAlpha=fi;ctx.fill();ctx.globalAlpha=1;
+        }
+        ctx.stroke();
+        if(m.type==='area'&&m.measurement){
+          const cx=m.pts.reduce((s,p)=>s+p.x,0)/m.pts.length;
+          const cy=m.pts.reduce((s,p)=>s+p.y,0)/m.pts.length;
+          drawLabel(cx,cy,m.measurement,m.color);
+        }
+      }break;
+    case'pen':
+      if(m.pts&&m.pts.length>1){
+        ctx.beginPath();ctx.moveTo(m.pts[0].x,m.pts[0].y);
+        m.pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+        ctx.stroke();
+      }break;
+    case'count':drawCount(m);break;
+    case'snip':{
+      if(m.img){
+        const x=Math.min(x1,x2),y=Math.min(y1,y2),w=Math.abs(x2-x1),h=Math.abs(y2-y1);
+        if(!m._imgObj||m._imgObj._src!==m.img){
+          // Cache decoded image object on the markup for perf
+          const img=new Image();img.src=m.img;m._imgObj=img;img._src=m.img;
+        }
+        if(m._imgObj.complete&&m._imgObj.naturalWidth){
+          if(m.rotation){
+            ctx.save();
+            ctx.translate(x+w/2,y+h/2);
+            ctx.rotate(m.rotation*Math.PI/180);
+            ctx.drawImage(m._imgObj,-w/2,-h/2,w,h);
+            ctx.restore();
+          } else {
+            ctx.drawImage(m._imgObj,x,y,w,h);
+          }
+        } else {
+          // Image not loaded yet — draw placeholder
+          ctx.strokeStyle='#4a8ef7';ctx.lineWidth=1;ctx.setLineDash([4,3]);
+          const x_=Math.min(x1,x2),y_=Math.min(y1,y2),w_=Math.abs(x2-x1),h_=Math.abs(y2-y1);
+          ctx.strokeRect(x_,y_,w_,h_);ctx.setLineDash([]);
+          m._imgObj.onload=()=>redraw();
+        }
+      }
+      break;
+    }
+  }
+  ctx.restore();
+}
+
+function drawArrow(x1,y1,x2,y2){
+  const hl=14,a=Math.atan2(y2-y1,x2-x1);
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x2,y2);
+  ctx.lineTo(x2-hl*Math.cos(a-Math.PI/6),y2-hl*Math.sin(a-Math.PI/6));
+  ctx.lineTo(x2-hl*Math.cos(a+Math.PI/6),y2-hl*Math.sin(a+Math.PI/6));
+  ctx.closePath();ctx.fill();
+}
+
+function drawCloud(x1,y1,x2,y2){
+  const mx=Math.min(x1,x2),my=Math.min(y1,y2),mw=Math.abs(x2-x1),mh=Math.abs(y2-y1);
+  const bx=mw/Math.max(2,Math.round(mw/18));
+  const by=mh/Math.max(2,Math.round(mh/18));
+  const nx=Math.round(mw/bx),ny=Math.round(mh/by);
+  ctx.beginPath();
+  for(let i=0;i<nx;i++)ctx.arc(mx+bx*(i+.5),my,bx/2,Math.PI,0);
+  for(let i=0;i<ny;i++)ctx.arc(mx+mw,my+by*(i+.5),by/2,-Math.PI/2,Math.PI/2);
+  for(let i=nx-1;i>=0;i--)ctx.arc(mx+bx*(i+.5),my+mh,bx/2,0,Math.PI);
+  for(let i=ny-1;i>=0;i--)ctx.arc(mx,my+by*(i+.5),by/2,Math.PI/2,-Math.PI/2);
+  ctx.closePath();
+  ctx.globalAlpha=.12;ctx.fill();ctx.globalAlpha=1;ctx.stroke();
+}
+
+function drawDimension(m){
+  const x1=m.x1,y1=m.y1,x2=m.x2,y2=m.y2;
+  const dx=x2-x1,dy=y2-y1;
+  const a=Math.atan2(dy,dx);
+  const ox=Math.cos(a-Math.PI/2)*22,oy=Math.sin(a-Math.PI/2)*22;
+  ctx.beginPath();
+  ctx.moveTo(x1,y1);ctx.lineTo(x1+ox,y1+oy);
+  ctx.moveTo(x2,y2);ctx.lineTo(x2+ox,y2+oy);
+  ctx.stroke();
+  drawArrow(x1+ox,y1+oy,x2+ox,y2+oy);
+  drawArrow(x2+ox,y2+oy,x1+ox,y1+oy);
+  const mx=(x1+x2)/2+ox,my=(y1+y2)/2+oy;
+  const lbl=m.measurement||formatDist(Math.hypot(dx,dy),null);
+  drawLabel(mx,my,lbl,m.color);
+}
+
+function drawText(m){
+  ctx.font=`${m.fs||14}px -apple-system,sans-serif`;
+  const lines=(m.text||'').split('\n');const lh=18;
+  const maxW=Math.max(...lines.map(l=>ctx.measureText(l).width));
+  ctx.fillStyle='rgba(0,0,0,.65)';
+  ctx.fillRect(m.x1-4,m.y1-16,maxW+10,lines.length*lh+10);
+  ctx.fillStyle=m.color;
+  lines.forEach((ln,i)=>ctx.fillText(ln,m.x1,m.y1+i*lh));
+}
+
+function drawCallout(m){
+  ctx.font=`${m.fs||13}px -apple-system,sans-serif`;
+  const lines=(m.text||'').split('\n');
+  const lh=17;
+  // During live drag (no text yet) show a dashed preview box
+  const isPreview=!m.text;
+  const maxW=isPreview?80:Math.max(...lines.map(l=>ctx.measureText(l).width),60);
+  const bh=isPreview?36:lines.length*lh+10;
+  const bw=maxW+14;
+  // Box is drawn at x1,y1; leader tip is at x2,y2
+  const bx=m.x1,by=m.y1;
+  ctx.beginPath();roundRect(ctx,bx,by,bw,bh,5);
+  ctx.fillStyle=isPreview?'rgba(0,0,0,.35)':'rgba(0,0,0,.72)';
+  ctx.fill();
+  ctx.strokeStyle=m.color;ctx.lineWidth=m.sw||1;
+  if(isPreview)ctx.setLineDash([4,3]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // Leader line from box bottom-centre to tip (x2,y2)
+  if(m.x2!=null){
+    const lx=bx+bw/2,ly=by+bh;
+    ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(m.x2,m.y2);
+    ctx.strokeStyle=m.color;ctx.lineWidth=m.sw||1;ctx.stroke();
+    // arrowhead at tip
+    const a=Math.atan2(m.y2-ly,m.x2-lx);const hl=10;
+    ctx.beginPath();
+    ctx.moveTo(m.x2,m.y2);
+    ctx.lineTo(m.x2-hl*Math.cos(a-Math.PI/7),m.y2-hl*Math.sin(a-Math.PI/7));
+    ctx.lineTo(m.x2-hl*Math.cos(a+Math.PI/7),m.y2-hl*Math.sin(a+Math.PI/7));
+    ctx.closePath();ctx.fillStyle=m.color;ctx.fill();
+  }
+  if(!isPreview){
+    ctx.fillStyle=m.color;
+    lines.forEach((ln,i)=>ctx.fillText(ln,bx+7,by+16+i*lh));
+  }else{
+    ctx.fillStyle='rgba(255,255,255,.3)';
+    ctx.fillText('type text…',bx+7,by+22);
+  }
+}
+
+function drawCount(m){
+  ctx.beginPath();ctx.arc(m.x1,m.y1,11,0,Math.PI*2);
+  ctx.fillStyle=m.color;ctx.globalAlpha=.9;ctx.fill();ctx.globalAlpha=1;
+  ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=1;ctx.stroke();
+  ctx.fillStyle='#000';ctx.font='bold 10px sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(m.n||1,m.x1,m.y1);
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+}
+
+function drawPolyPreview(pts,mouse,closed){
+  ctx.save();ctx.strokeStyle=S.color;ctx.lineWidth=S.strokeW;
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash([5,3]);
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+  pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+  if(mouse)ctx.lineTo(mouse.x,mouse.y);
+  if(closed&&pts.length>2)ctx.closePath();
+  ctx.stroke();ctx.setLineDash([]);
+  pts.forEach(p=>drawDot(p.x,p.y,S.color));
+  ctx.restore();
+}
+
+function drawLabel(x,y,text,color){
+  ctx.save();
+  ctx.font='bold 12px -apple-system,sans-serif';
+  const tw=ctx.measureText(text).width;
+  ctx.fillStyle='rgba(0,0,0,.75)';
+  ctx.fillRect(x-tw/2-5,y-11,tw+10,17);
+  ctx.fillStyle=color;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(text,x,y-2);
+  ctx.textAlign='left';ctx.textBaseline='alphabetic';
+  ctx.restore();
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();
+}
+
+// ════════════════════════════════════════════════
+// DISTANCE FORMATTING
+// ════════════════════════════════════════════════
+function formatDist(px,unit){
+  if(!S.scale)return Math.round(px)+'px';
+  const d=px/S.scale.ppu;
+  unit=unit||S.scale.unit;
+  if(unit==='ft'){
+    const ft=Math.floor(d),inch=Math.round((d-ft)*12);
+    if(inch===12)return`${ft+1}'-0"`;
+    return`${ft}'-${inch}"`;
+  }
+  return d.toFixed(2)+' '+unit;
+}
+
+function calcArea(pts){
+  // Shoelace formula
+  let a=0;
+  for(let i=0;i<pts.length;i++){
+    const j=(i+1)%pts.length;
+    a+=pts[i].x*pts[j].y-pts[j].x*pts[i].y;
+  }
+  const pxArea=Math.abs(a)/2;
+  if(!S.scale)return Math.round(pxArea)+' px²';
+  const u=S.scale.unit;
+  const sqd=pxArea/(S.scale.ppu*S.scale.ppu);
+  if(u==='ft')return sqd.toFixed(1)+' ft²';
+  if(u==='m')return sqd.toFixed(2)+' m²';
+  return sqd.toFixed(2)+' '+u+'²';
+}
+
+// ════════════════════════════════════════════════
+// PDF LOADING & PAGE RENDERING
+// ════════════════════════════════════════════════
+function hexToRgb(hex){
+  return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
+}
+
+async function renderPage(pdfDoc,pageNum,color){
+  const page=await pdfDoc.getPage(pageNum);
+  const vp=page.getViewport({scale:2});
+  const c=document.createElement('canvas');
+  c.width=vp.width;c.height=vp.height;
+  const cx=c.getContext('2d');
+  cx.fillStyle='#fff';cx.fillRect(0,0,c.width,c.height);
+  await page.render({canvasContext:cx,viewport:vp}).promise;
+  // tint
+  const id=cx.getImageData(0,0,c.width,c.height);
+  const d=id.data;const rgb=hexToRgb(color);
+  for(let i=0;i<d.length;i+=4){
+    const b=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+    const k=255-b;
+    d[i]=rgb[0];d[i+1]=rgb[1];d[i+2]=rgb[2];d[i+3]=(k/255)*d[i+3];
+  }
+  cx.putImageData(id,0,0);
+  return c;
+}
+
+async function loadPDF(file,layerId){
+  setStatus(`Loading ${file.name}…`);
+  try{
+    const buf=await file.arrayBuffer();
+    const L=S.layers[layerId];
+    L.rawData=buf.slice(0); // keep a copy — PDF.js transfers the original buffer to its worker
+    L.pdfKey='pdf-'+layerId+'-'+Date.now();
+    await idbPut(L.pdfKey,L.rawData.slice(0)); // wait for IDB write to complete
+    const pdf=await pdfjsLib.getDocument({data:L.rawData.slice(0)}).promise; // use fresh copy
+    L.pdfDoc=pdf;L.totalPages=pdf.numPages;L.currentPage=1;
+    L.renderedCanvas=await renderPage(pdf,1,L.color);
+    L.name=file.name.replace(/\.pdf$/i,'').slice(0,28);
+    updateCanvasSize();
+    buildSidebar();
+    document.getElementById('empty-msg').style.display='none';
+    setStatus(`✓ Loaded ${file.name} (${pdf.numPages} page${pdf.numPages>1?'s':''})`);
+    redraw();
+    fitToWindow();
+  }catch(e){
+    setStatus('Error loading PDF: '+e.message);
+    console.error(e);
+  }
+}
+
+async function changePage(layerId,delta){
+  const L=S.layers[layerId];
+  if(!L.pdfDoc)return;
+  const np=L.currentPage+delta;
+  if(np<1||np>L.totalPages)return;
+  L.currentPage=np;
+  setStatus(`Rendering page ${np}…`);
+  L.renderedCanvas=await renderPage(L.pdfDoc,np,L.color);
+  updateCanvasSize();
+  buildSidebar();
+  redraw();
+  setStatus(`Page ${np} of ${L.totalPages}`);
+}
+
+// ════════════════════════════════════════════════
+// SIDEBAR
+// ════════════════════════════════════════════════
+function buildSidebar(){
+  const c=document.getElementById('layers-container');
+  c.innerHTML='';
+  S.layers.forEach((L,i)=>{
+    const card=document.createElement('div');
+    card.className='lcard';
+    const hasFile=!!L.pdfDoc;
+    const visClass=L.visible?'lvis':'lvis off';
+    card.innerHTML=`
+      <div class="lcard-hdr">
+        <div class="ldot" style="background:${L.color}"></div>
+        <div class="lname">${L.name}</div>
+        <button class="${visClass}" data-vid="${i}" title="Toggle visibility">${L.visible?'👁':'○'}</button>
+      </div>
+      <div class="lfile">${hasFile?L.name+'.pdf':'No file loaded'}</div>
+      ${hasFile?`<div class="lcard-btns">
+        <div class="page-nav">
+          <button data-pg="${i}" data-d="-1" ${L.currentPage<=1?'disabled':''}>‹</button>
+          <span class="page-lbl">Pg ${L.currentPage}/${L.totalPages}</span>
+          <button data-pg="${i}" data-d="1" ${L.currentPage>=L.totalPages?'disabled':''}>›</button>
+        </div>
+      </div>`:''}
+      <div class="lcard-btns">
+        <label class="lupload">📂 Load PDF<input type="file" accept=".pdf" data-lid="${i}"></label>
+        ${hasFile?`<button class="lclear" data-clr="${i}" title="Clear layer">✕</button>`:''}
+      </div>
+      <div class="row2"><span>Opacity</span><strong id="oplbl${i}">${Math.round(L.opacity*100)}%</strong></div>
+      <input type="range" min="10" max="100" value="${Math.round(L.opacity*100)}" data-oplid="${i}">
+      <div class="row2" style="margin-top:4px"><span>X offset</span><span id="xovlbl${i}" class="off-val">${Math.round(L.offsetX)}px</span></div>
+      <input type="range" min="-5000" max="5000" value="${Math.round(L.offsetX)}" data-xid="${i}">
+      <div class="row2"><span>Y offset</span><span id="yovlbl${i}" class="off-val">${Math.round(L.offsetY)}px</span></div>
+      <input type="range" min="-5000" max="5000" value="${Math.round(L.offsetY)}" data-yid="${i}">
+      <div class="row2" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+        <span>Rotation</span>
+        <span id="rotlbl${i}" style="font-size:10px;color:var(--text2);font-weight:600">${L.rotation||0}°</span>
+      </div>
+      <div style="display:flex;gap:4px;margin-bottom:4px">
+        <button data-rotl="${i}" style="flex:1;padding:5px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 90° counter-clockwise">↺ 90°</button>
+        <button data-rotr="${i}" style="flex:1;padding:5px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 90° clockwise">↻ 90°</button>
+        <button data-rot180="${i}" style="flex:1;padding:5px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer" title="Rotate 180°">180°</button>
+        <button data-rot0="${i}" style="flex:1;padding:5px;font-size:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);cursor:pointer" title="Reset rotation">0°</button>
+      </div>
+      <div style="display:flex;gap:4px;align-items:center;margin-bottom:6px">
+        <button data-rotfine="${i}" data-deg="-1" style="width:28px;height:28px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;flex-shrink:0" title="Rotate −1°">−1°</button>
+        <input type="number" min="-359" max="359" step="1" value="${Math.round(L.rotation||0)}" data-rotnum="${i}"
+          style="flex:1;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit;text-align:center" title="Enter exact rotation in degrees">
+        <button data-rotfine="${i}" data-deg="1" style="width:28px;height:28px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);cursor:pointer;flex-shrink:0" title="Rotate +1°">+1°</button>
+      </div>
+      <div class="row2" style="border-top:1px solid var(--border);padding-top:6px">
+        <span>Scale</span>
+        <span id="srlbl${i}" style="font-size:10px;color:var(--text2);font-weight:600">${(L.scaleRatio||1).toFixed(3)}×</span>
+      </div>
+      <input type="range" min="200" max="2000" value="${Math.round((L.scaleRatio||1)*1000)}" data-srid="${i}" style="margin-bottom:2px">
+      <div style="display:flex;gap:4px;margin-bottom:4px">
+        <input type="number" min="0.1" max="5" step="0.001" value="${(L.scaleRatio||1).toFixed(3)}" data-srnum="${i}"
+          style="flex:1;padding:3px 6px;font-size:11px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-family:inherit">
+        <button data-srreset="${i}" style="padding:3px 7px;font-size:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:inherit" title="Reset scale to 1×">1×</button>
+      </div>
+    `;
+    c.appendChild(card);
+  });
+
+  // Bind events
+  c.querySelectorAll('[data-vid]').forEach(b=>b.addEventListener('click',()=>{
+    const i=+b.dataset.vid;S.layers[i].visible=!S.layers[i].visible;buildSidebar();redraw();
+  }));
+  c.querySelectorAll('[data-pg]').forEach(b=>b.addEventListener('click',()=>{
+    changePage(+b.dataset.pg,+b.dataset.d);
+  }));
+  c.querySelectorAll('input[type=file]').forEach(inp=>inp.addEventListener('change',e=>{
+    if(e.target.files[0])loadPDF(e.target.files[0],+inp.dataset.lid);
+    e.target.value='';
+  }));
+  c.querySelectorAll('[data-clr]').forEach(b=>b.addEventListener('click',()=>{
+    const i=+b.dataset.clr;
+    S.layers[i]={...S.layers[i],pdfDoc:null,totalPages:0,currentPage:1,renderedCanvas:null,rawData:null,pdfKey:null,offsetX:0,offsetY:0,scaleRatio:1.0,rotation:0,name:LAYER_NAMES[i]};
+    buildSidebar();redraw();
+    if(!S.layers.some(l=>l.renderedCanvas))document.getElementById('empty-msg').style.display='flex';
+  }));
+  c.querySelectorAll('[data-oplid]').forEach(inp=>inp.addEventListener('input',e=>{
+    const i=+inp.dataset.oplid;S.layers[i].opacity=+e.target.value/100;
+    document.getElementById('oplbl'+i).textContent=e.target.value+'%';redraw();
+  }));
+  c.querySelectorAll('[data-xid]').forEach(inp=>{
+    let _xTimer=null;
+    inp.addEventListener('input',e=>{
+      const i=+inp.dataset.xid;
+      // Debounce undo pushes for slider drag (push once per gesture)
+      if(!inp._sliding){inp._sliding=true;pushUndo();}
+      clearTimeout(_xTimer);_xTimer=setTimeout(()=>{inp._sliding=false;},500);
+      S.layers[i].offsetX=+e.target.value;
+      document.getElementById('xovlbl'+i).textContent=e.target.value+'px';
+      updateCanvasSize();redraw();
+    });
+  });
+  c.querySelectorAll('[data-yid]').forEach(inp=>{
+    let _yTimer=null;
+    inp.addEventListener('input',e=>{
+      const i=+inp.dataset.yid;
+      if(!inp._sliding){inp._sliding=true;pushUndo();}
+      clearTimeout(_yTimer);_yTimer=setTimeout(()=>{inp._sliding=false;},500);
+      S.layers[i].offsetY=+e.target.value;
+      document.getElementById('yovlbl'+i).textContent=e.target.value+'px';
+      updateCanvasSize();redraw();
+    });
+  });
+  // Rotation buttons
+  function applyRotation(i,deg){
+    pushUndo();
+    S.layers[i].rotation=((S.layers[i].rotation||0)+deg+360)%360;
+    document.getElementById('rotlbl'+i).textContent=S.layers[i].rotation+'°';
+    updateCanvasSize();redraw();
+  }
+  function syncRotUI(i,doUndo){
+    if(doUndo)pushUndo();
+    const v=((S.layers[i].rotation%360)+360)%360;
+    S.layers[i].rotation=v;
+    document.getElementById('rotlbl'+i).textContent=v+'°';
+    const num=c.querySelector(`[data-rotnum="${i}"]`);if(num)num.value=v;
+    updateCanvasSize();redraw();
+  }
+  c.querySelectorAll('[data-rotl]').forEach(b=>b.addEventListener('click',()=>{S.layers[+b.dataset.rotl].rotation=(S.layers[+b.dataset.rotl].rotation||0)-90;syncRotUI(+b.dataset.rotl,true);}));
+  c.querySelectorAll('[data-rotr]').forEach(b=>b.addEventListener('click',()=>{S.layers[+b.dataset.rotr].rotation=(S.layers[+b.dataset.rotr].rotation||0)+90;syncRotUI(+b.dataset.rotr,true);}));
+  c.querySelectorAll('[data-rot180]').forEach(b=>b.addEventListener('click',()=>{S.layers[+b.dataset.rot180].rotation=(S.layers[+b.dataset.rot180].rotation||0)+180;syncRotUI(+b.dataset.rot180,true);}));
+  c.querySelectorAll('[data-rot0]').forEach(b=>b.addEventListener('click',()=>{pushUndo();S.layers[+b.dataset.rot0].rotation=0;syncRotUI(+b.dataset.rot0,false);}));
+  c.querySelectorAll('[data-rotfine]').forEach(b=>b.addEventListener('click',()=>{S.layers[+b.dataset.rotfine].rotation=(S.layers[+b.dataset.rotfine].rotation||0)+(+b.dataset.deg);syncRotUI(+b.dataset.rotfine,true);}));
+  c.querySelectorAll('[data-rotnum]').forEach(inp=>inp.addEventListener('change',e=>{
+    const i=+inp.dataset.rotnum;pushUndo();S.layers[i].rotation=+e.target.value||0;syncRotUI(i,false);
+  }));
+  // Scale ratio slider
+  c.querySelectorAll('[data-srid]').forEach(inp=>inp.addEventListener('input',e=>{
+    const i=+inp.dataset.srid;const v=+e.target.value/1000;
+    S.layers[i].scaleRatio=v;
+    document.getElementById('srlbl'+i).textContent=v.toFixed(3)+'×';
+    const num=c.querySelector(`[data-srnum="${i}"]`);if(num)num.value=v.toFixed(3);
+    updateCanvasSize();redraw();
+  }));
+  // Scale ratio number input
+  c.querySelectorAll('[data-srnum]').forEach(inp=>inp.addEventListener('change',e=>{
+    const i=+inp.dataset.srnum;const v=Math.max(0.1,Math.min(5,+e.target.value||1));
+    S.layers[i].scaleRatio=v;inp.value=v.toFixed(3);
+    document.getElementById('srlbl'+i).textContent=v.toFixed(3)+'×';
+    const sl=c.querySelector(`[data-srid="${i}"]`);if(sl)sl.value=Math.round(v*1000);
+    updateCanvasSize();redraw();
+  }));
+  // Scale reset button
+  c.querySelectorAll('[data-srreset]').forEach(b=>b.addEventListener('click',()=>{
+    const i=+b.dataset.srreset;S.layers[i].scaleRatio=1.0;
+    document.getElementById('srlbl'+i).textContent='1.000×';
+    const sl=c.querySelector(`[data-srid="${i}"]`);if(sl)sl.value=1000;
+    const num=c.querySelector(`[data-srnum="${i}"]`);if(num)num.value='1.000';
+    updateCanvasSize();redraw();
+  }));
+}
+
+function updateOffsetUI(layerId){
+  const L=S.layers[layerId];
+  const xIn=document.querySelector(`[data-xid="${layerId}"]`);
+  const yIn=document.querySelector(`[data-yid="${layerId}"]`);
+  if(xIn){xIn.value=Math.round(L.offsetX);document.getElementById('xovlbl'+layerId).textContent=Math.round(L.offsetX)+'px';}
+  if(yIn){yIn.value=Math.round(L.offsetY);document.getElementById('yovlbl'+layerId).textContent=Math.round(L.offsetY)+'px';}
+}
+function updateScaleUI(layerId){
+  const L=S.layers[layerId];const v=L.scaleRatio||1;
+  const lbl=document.getElementById('srlbl'+layerId);if(lbl)lbl.textContent=v.toFixed(3)+'×';
+  const sl=document.querySelector(`[data-srid="${layerId}"]`);if(sl)sl.value=Math.round(v*1000);
+  const num=document.querySelector(`[data-srnum="${layerId}"]`);if(num)num.value=v.toFixed(3);
+}
+
+// ════════════════════════════════════════════════
+// AUTO-ALIGNMENT (multi-scale wall-perimeter matching)
+//
+// Handles sheets at DIFFERENT scales (e.g. site plan vs floor plan):
+//
+//   Phase 1 – Scale detection (10% resolution):
+//     Tests scale factors 0.20→2.50 in steps of 0.05.
+//     For each candidate sf, resamples target projections to simulate the
+//     target building appearing sf× the size it does in the reference.
+//     Slides the resampled target over the reference projection and records
+//     the peak NCC score. The sf with the highest combined row+col score wins.
+//
+//   Phase 2 – Scale refinement (20% resolution):
+//     Searches ±0.08 around the coarse sf in steps of 0.005.
+//
+//   Phase 3 – Translation (35% resolution):
+//     With scale locked, uses the Sobel NCC translation search (±500px coarse,
+//     ±40px fine) to find precise pixel offset.
+//
+// All edge detection uses Sobel on the alpha channel (ink = high alpha).
+// ════════════════════════════════════════════════
+async function autoAlign(targetIdx,refIdx=0){
+  const ref=S.layers[refIdx],tgt=S.layers[targetIdx];
+  if(!ref.renderedCanvas||!tgt.renderedCanvas){
+    setStatus('Both layers need loaded PDFs to auto-align');return;
+  }
+  openModal('modal-aligning');
+  await new Promise(r=>setTimeout(r,30));
+  setAlignProgress(5,'Extracting wall perimeters…');
+  await new Promise(r=>setTimeout(r,20));
+
+  // ── Return a rotation-corrected canvas for alignment use ──────────────────
+  function getAlignCanvas(layer){
+    const c=layer.renderedCanvas;
+    const rot=((layer.rotation||0)+360)%360;
+    if(rot===0)return c;
+    const swap=(rot===90||rot===270);
+    const nw=swap?c.height:c.width, nh=swap?c.width:c.height;
+    const tmp=document.createElement('canvas');tmp.width=nw;tmp.height=nh;
+    const cx=tmp.getContext('2d');
+    cx.translate(nw/2,nh/2);cx.rotate(rot*Math.PI/180);
+    cx.drawImage(c,-c.width/2,-c.height/2);
+    return tmp;
+  }
+
+  // ── Sobel edge projections ────────────────────────────────────────────────
+  function getEdgeProjections(layer,sc){
+    const c=getAlignCanvas(layer);
+    const w=Math.max(1,Math.round(c.width*sc));
+    const h=Math.max(1,Math.round(c.height*sc));
+    const tmp=document.createElement('canvas');
+    tmp.width=w;tmp.height=h;
+    const cx=tmp.getContext('2d');
+    cx.drawImage(c,0,0,w,h);
+    const d=cx.getImageData(0,0,w,h).data;
+    const gray=new Float32Array(w*h);
+    for(let i=0;i<w*h;i++) gray[i]=d[i*4+3]/255;
+    const edges=new Float32Array(w*h);
+    for(let y=1;y<h-1;y++){
+      for(let x=1;x<w-1;x++){
+        const gx=-gray[(y-1)*w+(x-1)]+gray[(y-1)*w+(x+1)]
+                 -2*gray[y*w+(x-1)]  +2*gray[y*w+(x+1)]
+                 -gray[(y+1)*w+(x-1)]+gray[(y+1)*w+(x+1)];
+        const gy=-gray[(y-1)*w+(x-1)]-2*gray[(y-1)*w+x]-gray[(y-1)*w+(x+1)]
+                 +gray[(y+1)*w+(x-1)]+2*gray[(y+1)*w+x]+gray[(y+1)*w+(x+1)];
+        edges[y*w+x]=Math.sqrt(gx*gx+gy*gy);
+      }
+    }
+    const rowProj=new Float32Array(h);
+    const colProj=new Float32Array(w);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++){rowProj[y]+=edges[y*w+x];colProj[x]+=edges[y*w+x];}
+    return{rowProj,colProj,w,h};
+  }
+
+  // ── Linear interpolation resample ─────────────────────────────────────────
+  function resampleProj(proj,newLen){
+    newLen=Math.max(1,Math.round(newLen));
+    const out=new Float32Array(newLen);
+    const ratio=(proj.length-1)/Math.max(1,newLen-1);
+    for(let i=0;i<newLen;i++){
+      const t=i*ratio,lo=Math.floor(t),hi=Math.min(lo+1,proj.length-1);
+      out[i]=proj[lo]+(proj[hi]-proj[lo])*(t-lo);
+    }
+    return out;
+  }
+
+  // ── NCC between two equal-length windows ──────────────────────────────────
+  function nccWindow(a,ai,b,bi,len){
+    let sa=0,sb=0;
+    for(let k=0;k<len;k++){sa+=a[ai+k];sb+=b[bi+k];}
+    const ma=sa/len,mb=sb/len;
+    let c=0,ea=0,eb=0;
+    for(let k=0;k<len;k++){const da=a[ai+k]-ma,db=b[bi+k]-mb;c+=da*db;ea+=da*da;eb+=db*db;}
+    return c/Math.sqrt(ea*eb||1);
+  }
+
+  // ── Best NCC by sliding scaled target over reference ─────────────────────
+  function bestSlideScore(ref,tgt){
+    // slide the shorter over the longer, step=3 for speed
+    let best=-Infinity;
+    const [longer,shorter]=ref.length>=tgt.length?[ref,tgt]:[tgt,ref];
+    const len=shorter.length;
+    if(len<4)return 0;
+    for(let off=0;off<=longer.length-len;off+=3){
+      const s=nccWindow(longer,off,shorter,0,len);
+      if(s>best)best=s;
+    }
+    return best;
+  }
+
+  // ── Full NCC correlation with shift search ────────────────────────────────
+  function correlate1D(a1,a2,maxShift){
+    const n1=a1.length,n2=a2.length;
+    let s1=0,s2=0;
+    for(let i=0;i<n1;i++)s1+=a1[i];
+    for(let i=0;i<n2;i++)s2+=a2[i];
+    const m1=s1/n1,m2=s2/n2;
+    let e1=0,e2=0;
+    for(let i=0;i<n1;i++)e1+=(a1[i]-m1)**2;
+    for(let i=0;i<n2;i++)e2+=(a2[i]-m2)**2;
+    const norm=Math.sqrt(e1)*Math.sqrt(e2)||1;
+    let best=-Infinity,bestD=0;
+    for(let d=-maxShift;d<=maxShift;d++){
+      let s=0;
+      const lo=Math.max(0,-d),hi=Math.min(n1,n2-d);
+      for(let i=lo;i<hi;i++)s+=(a1[i]-m1)*(a2[i+d]-m2);
+      const score=s/norm;
+      if(score>best){best=score;bestD=d;}
+    }
+    return bestD;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PHASE 1: Coarse scale detection at 10% resolution
+  // ════════════════════════════════════════════════════════════════════════════
+  setAlignProgress(10,'Phase 1 — detecting scale difference…');
+  await new Promise(r=>setTimeout(r,20));
+
+  const SC_S=0.10;
+  const rS=getEdgeProjections(ref,SC_S);
+  const tS=getEdgeProjections(tgt,SC_S);
+
+  let bestSf=1.0,bestSfScore=-Infinity;
+  // Search sf: if sf<1 → target building is smaller than ref (e.g. site plan vs floor plan)
+  //            if sf>1 → target building is larger than ref
+  for(let sf=0.20;sf<=2.50;sf+=0.05){
+    const scaledRow=resampleProj(tS.rowProj,tS.rowProj.length*sf);
+    const scaledCol=resampleProj(tS.colProj,tS.colProj.length*sf);
+    const scoreRow=bestSlideScore(rS.rowProj,scaledRow);
+    const scoreCol=bestSlideScore(rS.colProj,scaledCol);
+    const score=scoreRow+scoreCol;
+    if(score>bestSfScore){bestSfScore=score;bestSf=sf;}
+  }
+
+  setAlignProgress(35,'Phase 2 — refining scale…');
+  await new Promise(r=>setTimeout(r,10));
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PHASE 2: Fine scale refinement at 20% resolution
+  // ════════════════════════════════════════════════════════════════════════════
+  const SC_S2=0.20;
+  const rS2=getEdgeProjections(ref,SC_S2);
+  const tS2=getEdgeProjections(tgt,SC_S2);
+  let fineSf=bestSf,fineSfScore=-Infinity;
+  const sfLo=Math.max(0.10,bestSf-0.08),sfHi=Math.min(4.0,bestSf+0.08);
+  for(let sf=sfLo;sf<=sfHi;sf+=0.005){
+    const scaledRow=resampleProj(tS2.rowProj,tS2.rowProj.length*sf);
+    const scaledCol=resampleProj(tS2.colProj,tS2.colProj.length*sf);
+    const score=bestSlideScore(rS2.rowProj,scaledRow)+bestSlideScore(rS2.colProj,scaledCol);
+    if(score>fineSfScore){fineSfScore=score;fineSf=sf;}
+  }
+
+  setAlignProgress(58,'Phase 3 — aligning wall positions…');
+  await new Promise(r=>setTimeout(r,20));
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // PHASE 3: Translation search with scale applied
+  // Extract edges from target at scale adjusted by fineSf so its building
+  // appears the same pixel size as in the reference for reliable correlation.
+  // ════════════════════════════════════════════════════════════════════════════
+  const SC1=0.12;
+  const rC=getEdgeProjections(ref,SC1);
+  // Adjust target sampling scale so features appear at the same px size as ref
+  const tC=getEdgeProjections(tgt,SC1*fineSf);
+  const R1=Math.round(500*SC1);
+  const coarseY=correlate1D(rC.rowProj,tC.rowProj,R1);
+  const coarseX=correlate1D(rC.colProj,tC.colProj,R1);
+  const roughDx=Math.round(coarseX/SC1);
+  const roughDy=Math.round(coarseY/SC1);
+
+  setAlignProgress(78,'Phase 3 — fine translation…');
+  await new Promise(r=>setTimeout(r,10));
+
+  const SC2=0.35;
+  const rF=getEdgeProjections(ref,SC2);
+  const tF=getEdgeProjections(tgt,SC2*fineSf);
+  const R2=Math.round(40*SC2);
+  function shiftProj(proj,shift){
+    const n=proj.length,out=new Float32Array(n);
+    for(let i=0;i<n;i++){const j=i+shift;if(j>=0&&j<n)out[i]=proj[j];}
+    return out;
+  }
+  const tFrowShifted=shiftProj(tF.rowProj,Math.round(roughDy*SC2));
+  const tFcolShifted=shiftProj(tF.colProj,Math.round(roughDx*SC2));
+  const fineY=correlate1D(rF.rowProj,tFrowShifted,R2);
+  const fineX=correlate1D(rF.colProj,tFcolShifted,R2);
+
+  setAlignProgress(94,'Applying scale and alignment…');
+  await new Promise(r=>setTimeout(r,20));
+
+  const fullDx=roughDx+Math.round(fineX/SC2);
+  const fullDy=roughDy+Math.round(fineY/SC2);
+
+  // Apply scale ratio and position to target layer
+  // scaleRatio = 1/fineSf: if the target building is 0.5× the ref building,
+  // we need to scale the target up by 2× to match sizes before overlaying.
+  tgt.scaleRatio=1/fineSf;
+  tgt.offsetX=ref.offsetX-fullDx;
+  tgt.offsetY=ref.offsetY-fullDy;
+
+  updateOffsetUI(targetIdx);
+  updateScaleUI(targetIdx);
+  updateCanvasSize();
+  setAlignProgress(100,`Scale: ${fineSf.toFixed(3)}× — aligned!`);
+  await new Promise(r=>setTimeout(r,500));
+  closeModal('modal-aligning');
+  redraw();
+  const pct=Math.round((1/fineSf)*100);
+  setStatus(`✓ Sheet ${targetIdx+1} aligned to Sheet ${refIdx+1} — scale ${fineSf.toFixed(3)}× (target rendered at ${pct}% of ref) — offset (${Math.round(tgt.offsetX)}, ${Math.round(tgt.offsetY)})px`);
+}
+
+function setAlignProgress(pct,msg){
+  document.getElementById('align-progress-bar').style.width=pct+'%';
+  document.getElementById('align-progress-msg').textContent=msg;
+}
+
+// ════════════════════════════════════════════════
+// POINT ALIGNMENT
+// ════════════════════════════════════════════════
+function startPointAlign(){
+  const refIdx=+document.getElementById('palign-ref').value;
+  const tgtIdx=+document.getElementById('palign-tgt').value;
+  if(refIdx===tgtIdx){alert('Reference and target must be different layers.');return;}
+  if(!S.layers[refIdx].renderedCanvas||!S.layers[tgtIdx].renderedCanvas){
+    alert('Both selected layers must have loaded PDFs.');return;
+  }
+  S.palignMode=true;S.palignStep=1;S.palignRef=refIdx;S.palignTgt=tgtIdx;S.palignP1=null;
+  closeModal('modal-palign');
+  setHint(`Point Align: Click reference point on Sheet ${refIdx+1} (${LAYER_NAMES[refIdx]})`);
+  setTool('select');
+}
+
+function handlePointAlignClick(pos){
+  if(S.palignStep===1){
+    S.palignP1=pos;S.palignStep=2;
+    setHint(`Point Align: Now click the same point on Sheet ${S.palignTgt+1} (${LAYER_NAMES[S.palignTgt]})`);
+    redraw();
+  }else if(S.palignStep===2){
+    const dx=S.palignP1.x-pos.x;
+    const dy=S.palignP1.y-pos.y;
+    S.layers[S.palignTgt].offsetX+=dx;
+    S.layers[S.palignTgt].offsetY+=dy;
+    S.palignMode=false;S.palignStep=0;S.palignP1=null;
+    updateOffsetUI(S.palignTgt);
+    updateCanvasSize();redraw();
+    setHint('');
+    setStatus(`✓ Layers aligned by point. Offset applied: (${Math.round(dx)}, ${Math.round(dy)})px`);
+  }
+}
+
+// ════════════════════════════════════════════════
+// CLASH DETECTION
+// ════════════════════════════════════════════════
+async function detectClashes(){
+  const active=S.layers.filter(l=>l.visible&&l.renderedCanvas);
+  if(active.length<2){setStatus('Need 2+ visible layers for clash detection');return;}
+  setStatus('Running clash detection…');
+  await new Promise(r=>setTimeout(r,20));
+
+  const thresh=+document.getElementById('clash-thresh').value;
+  const W=canvas.width,H=canvas.height;
+
+  // Composite each active layer at its offset
+  function compositeLayer(layer){
+    const c=document.createElement('canvas');c.width=W;c.height=H;
+    const cx=c.getContext('2d');
+    cx.drawImage(layer.renderedCanvas,layer.offsetX,layer.offsetY);
+    return cx.getImageData(0,0,W,H).data;
+  }
+
+  const pixelData=active.map(compositeLayer);
+  const clashCanvas=document.createElement('canvas');clashCanvas.width=W;clashCanvas.height=H;
+  const clashCtx=clashCanvas.getContext('2d');
+  const img=clashCtx.createImageData(W,H);
+  let clashPx=0;
+
+  for(let i=0;i<W*H;i++){
+    const p=i*4;let cnt=0;
+    for(const d of pixelData){if(d[p+3]>thresh)cnt++;}
+    if(cnt>=2){
+      img.data[p]=220;img.data[p+1]=0;img.data[p+2]=255;img.data[p+3]=180;
+      clashPx++;
+    }
+  }
+  clashCtx.putImageData(img,0,0);
+  S.clashCanvas=clashCanvas;S.showClashes=true;
+  // estimate regions (rough: divide by ~100 pixels per region)
+  S.clashCount=Math.max(0,Math.round(clashPx/80));
+  document.getElementById('clash-info').innerHTML=
+    clashPx>0?`<strong>${S.clashCount} clash zones</strong> detected (${clashPx.toLocaleString()} px)`:'<strong>No clashes</strong> detected';
+  document.getElementById('toggle-clashes-btn').textContent='Hide';
+  redraw();
+  setStatus(`✓ Clash detection complete — ${S.clashCount} zones found`);
+}
+
+// ════════════════════════════════════════════════
+// MARKUP SELECTION — hit-test, move, resize, delete
+// ════════════════════════════════════════════════
+function getMarkupBounds(m){
+  if(m.pts&&m.pts.length>0){
+    const xs=m.pts.map(p=>p.x),ys=m.pts.map(p=>p.y);
+    const x=Math.min(...xs),y=Math.min(...ys);
+    return{x,y,w:Math.max(Math.max(...xs)-x,10),h:Math.max(Math.max(...ys)-y,10)};
+  }
+  if(m.type==='count')return{x:m.x1-16,y:m.y1-16,w:32,h:32};
+  const x1=m.x1??0,y1=m.y1??0,x2=m.x2??m.x1,y2=m.y2??m.y1;
+  return{x:Math.min(x1,x2),y:Math.min(y1,y2),w:Math.max(Math.abs(x2-x1),10),h:Math.max(Math.abs(y2-y1),10)};
+}
+function hitTestMarkup(pos,m){
+  const b=getMarkupBounds(m);
+  const pad=Math.max(8,8/S.zoom);
+  return pos.x>=b.x-pad&&pos.x<=b.x+b.w+pad&&pos.y>=b.y-pad&&pos.y<=b.y+b.h+pad;
+}
+function findMarkupAt(pos){
+  for(let i=S.markups.length-1;i>=0;i--){if(hitTestMarkup(pos,S.markups[i]))return i;}
+  return -1;
+}
+function moveMarkupBy(m,dx,dy){
+  if(m.pts){m.pts=m.pts.map(p=>({x:p.x+dx,y:p.y+dy}));return;}
+  if(m.x1!=null){m.x1+=dx;m.y1+=dy;}
+  if(m.x2!=null){m.x2+=dx;m.y2+=dy;}
+}
+function resizeMarkupTo(m,orig,dx,dy){
+  // Resize from bottom-right corner: move x2,y2 (or for pts, scale uniformly)
+  if(m.pts){
+    const ox=orig.x??orig.pts[0].x, oy=orig.y??orig.pts[0].y;
+    const ob=getMarkupBounds(orig);
+    const scx=ob.w>0?Math.max(0.01,(ob.w+dx)/ob.w):1;
+    const scy=ob.h>0?Math.max(0.01,(ob.h+dy)/ob.h):1;
+    m.pts=orig.pts.map(p=>({x:ox+(p.x-ox)*scx,y:oy+(p.y-oy)*scy}));
+    return;
+  }
+  const nx2=(orig.x2??orig.x1)+dx, ny2=(orig.y2??orig.y1)+dy;
+  m.x2=nx2; m.y2=ny2;
+}
+// Store interactive zones per frame for hit-testing mouse events
+let _selZones={del:null,resize:null};
+function drawSelectionOverlay(m){
+  const b=getMarkupBounds(m);
+  const pad=7;
+  const bx=b.x-pad,by=b.y-pad,bw=b.w+pad*2,bh=b.h+pad*2;
+  ctx.save();
+  // Dashed selection border
+  ctx.strokeStyle='#4a8ef7';ctx.lineWidth=1.5;ctx.setLineDash([5,3]);
+  ctx.strokeRect(bx,by,bw,bh);ctx.setLineDash([]);
+  // Corner + edge handles
+  const hpts=[[bx,by],[bx+bw/2,by],[bx+bw,by],[bx+bw,by+bh/2],
+              [bx+bw,by+bh],[bx+bw/2,by+bh],[bx,by+bh],[bx,by+bh/2]];
+  hpts.forEach(([hx,hy])=>{
+    ctx.fillStyle='#fff';ctx.strokeStyle='#4a8ef7';ctx.lineWidth=1.2;
+    ctx.fillRect(hx-4,hy-4,8,8);ctx.strokeRect(hx-4,hy-4,8,8);
+  });
+  // Delete button (red circle, top-right)
+  const delX=bx+bw+4,delY=by-4;
+  ctx.fillStyle='#f74a4a';ctx.beginPath();ctx.arc(delX+8,delY,9,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 12px sans-serif';
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText('✕',delX+8,delY);
+  _selZones.del={x:delX+8,y:delY,r:9};
+  // Resize handle (bottom-right corner, slightly larger)
+  const rx=bx+bw-4,ry=by+bh-4;
+  ctx.fillStyle='#4a8ef7';ctx.fillRect(rx,ry,10,10);
+  _selZones.resize={x:rx,y:ry,w:10,h:10};
+  ctx.restore();
+}
+
+// ════════════════════════════════════════════════
+// TOOL EVENTS
+// ════════════════════════════════════════════════
+area.addEventListener('mousedown',e=>{
+  if(e.button!==0)return;
+  const pos=screenToCanvas(e.clientX,e.clientY);
+
+  // point-align mode
+  if(S.palignMode){handlePointAlignClick(pos);return;}
+
+  // calibration mode
+  if(S.calibMode){
+    S.calibPts.push(pos);
+    if(S.calibPts.length===2){
+      // move to step 2
+      S.calibMode=false;
+      openModal('modal-scale2');
+      document.getElementById('scale-dist').focus();
+    }
+    redraw();return;
+  }
+
+  // select tool: check interactive zones, markup hit, then fall back to pan
+  if(S.tool==='select'||e.altKey){
+    if(!e.altKey&&S.selectedIdx>=0){
+      // Delete button hit?
+      if(_selZones.del){
+        const d=_selZones.del;
+        if(Math.hypot(pos.x-d.x,pos.y-d.y)<=d.r){
+          pushUndo();S.markups.splice(S.selectedIdx,1);S.selectedIdx=-1;redraw();return;
+        }
+      }
+      // Resize handle hit?
+      if(_selZones.resize){
+        const r=_selZones.resize;
+        if(pos.x>=r.x&&pos.x<=r.x+r.w&&pos.y>=r.y&&pos.y<=r.y+r.h){
+          pushUndo();
+          S.resizing={startPos:pos,origMarkup:JSON.parse(JSON.stringify(S.markups[S.selectedIdx]))};
+          return;
+        }
+      }
+    }
+    if(!e.altKey){
+      const hitIdx=findMarkupAt(pos);
+      if(hitIdx>=0){
+        S.selectedIdx=hitIdx;
+        pushUndo();
+        S.moving={startPos:pos,origMarkup:JSON.parse(JSON.stringify(S.markups[hitIdx])),moved:false};
+        redraw();return;
+      }
+    }
+    S.selectedIdx=-1;
+    S.panning=true;S.panStart={mx:e.clientX,my:e.clientY,px:S.panX,py:S.panY};
+    area.style.cursor='grabbing';redraw();return;
+  }
+
+  // text
+  if(S.tool==='text'){showTextFloat(e.clientX,e.clientY,pos);return;}
+
+  // callout: start drag (box will be at start, tail at end)
+  // polyline/polygon/area: add point on click, finish on dblclick
+  if(S.tool==='polyline'||S.tool==='polygon'||S.tool==='area'){
+    S.polyPts.push(pos);redraw();return;
+  }
+
+  // pen
+  if(S.tool==='pen'){S.drawing=true;S.penPts=[pos];return;}
+
+  // count
+  if(S.tool==='count'){
+    pushUndo();
+    S.markups.push({type:'count',x1:pos.x,y1:pos.y,color:S.color,sw:S.strokeW,n:S.countN,fo:S.fillOpacity});
+    S.countN++;redraw();return;
+  }
+
+  // mask: start rubber-band rect for hiding title blocks / site notes
+  if(S.tool==='mask'){S.drawing=true;S.drawP1=pos;S.curMarkup={type:'mask',x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y,_preview:true};return;}
+  // snip: start rubber-band rect for capturing a canvas region
+  if(S.tool==='snip'){S.drawing=true;S.drawP1=pos;S.curMarkup={type:'snip',x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y,_preview:true};return;}
+
+  // all drag-based tools (including callout — text input fires on mouseup)
+  S.drawing=true;S.drawP1=pos;
+  S.curMarkup={type:S.tool,x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y,color:S.color,sw:S.strokeW,fo:S.fillOpacity,_preview:true};
+});
+
+area.addEventListener('dblclick',e=>{
+  if(S.tool==='polyline'||S.tool==='polygon'||S.tool==='area'){
+    if(S.polyPts.length>=2){
+      pushUndo();
+      const m={type:S.tool,pts:[...S.polyPts],color:S.color,sw:S.strokeW,fo:S.fillOpacity};
+      if(S.tool==='area'&&S.scale){m.measurement=calcArea(S.polyPts);}
+      S.markups.push(m);
+    }
+    S.polyPts=[];redraw();
+  }
+});
+
+area.addEventListener('mousemove',e=>{
+  const pos=screenToCanvas(e.clientX,e.clientY);
+  S.mousePos=pos;
+  document.getElementById('st-x').textContent=Math.round(pos.x);
+  document.getElementById('st-y').textContent=Math.round(pos.y);
+
+  if(S.panning&&S.panStart){
+    S.panX=S.panStart.px+(e.clientX-S.panStart.mx);
+    S.panY=S.panStart.py+(e.clientY-S.panStart.my);
+    applyTransform();return;
+  }
+  if(S.moving&&S.selectedIdx>=0){
+    const dx=pos.x-S.moving.startPos.x,dy=pos.y-S.moving.startPos.y;
+    S.markups[S.selectedIdx]=JSON.parse(JSON.stringify(S.moving.origMarkup));
+    moveMarkupBy(S.markups[S.selectedIdx],dx,dy);
+    S.moving.moved=true;area.style.cursor='move';redraw();return;
+  }
+  if(S.resizing&&S.selectedIdx>=0){
+    const dx=pos.x-S.resizing.startPos.x,dy=pos.y-S.resizing.startPos.y;
+    S.markups[S.selectedIdx]=JSON.parse(JSON.stringify(S.resizing.origMarkup));
+    resizeMarkupTo(S.markups[S.selectedIdx],S.resizing.origMarkup,dx,dy);
+    area.style.cursor='se-resize';redraw();return;
+  }
+  // Hover cursor: pointer over markup when select tool active
+  if(S.tool==='select'&&!S.drawing){
+    area.style.cursor=findMarkupAt(pos)>=0?'move':'default';
+  }
+  if(S.drawing&&S.curMarkup){
+    S.curMarkup.x2=pos.x;S.curMarkup.y2=pos.y;
+    if(S.tool==='dimension'&&S.scale){
+      S.curMarkup.measurement=formatDist(Math.hypot(pos.x-S.drawP1.x,pos.y-S.drawP1.y));
+    }
+  }
+  if(S.drawing&&S.tool==='pen')S.penPts.push(pos);
+  if(S.drawing||S.calibMode||S.palignMode||(S.polyPts.length>0))redraw();
+});
+
+area.addEventListener('mouseup',e=>{
+  if(e.button!==0)return;
+  if(S.panning){S.panning=false;area.style.cursor=cursorFor(S.tool);return;}
+  if(S.moving){
+    if(!S.moving.moved){
+      // Just a click with no drag — undo the pre-emptive pushUndo since nothing changed
+      S.undo.pop();
+    }
+    S.moving=null;area.style.cursor='move';redraw();return;
+  }
+  if(S.resizing){S.resizing=null;area.style.cursor=cursorFor(S.tool);redraw();return;}
+  const pos=screenToCanvas(e.clientX,e.clientY);
+  if(S.drawing){
+    // mask: commit rubber-band rect as a fractional mask on the best matching layer
+    if(S.tool==='mask'&&S.curMarkup){
+      S.curMarkup.x2=pos.x;S.curMarkup.y2=pos.y;
+      const mx=Math.min(S.curMarkup.x1,pos.x),my=Math.min(S.curMarkup.y1,pos.y);
+      const mw=Math.abs(pos.x-S.curMarkup.x1),mh=Math.abs(pos.y-S.curMarkup.y1);
+      if(mw>8&&mh>8){
+        // Find the layer the user drew over (topmost visible with a PDF)
+        let targetL=null;
+        for(let li=S.layers.length-1;li>=0;li--){
+          const l=S.layers[li];if(!l.visible||!l.renderedCanvas)continue;
+          const sr2=l.scaleRatio||1;
+          const is90b=(Math.abs(Math.round(l.rotation||0)%180)===90);
+          const bw2=is90b?Math.round(l.renderedCanvas.height*sr2):Math.round(l.renderedCanvas.width*sr2);
+          const bh2=is90b?Math.round(l.renderedCanvas.width*sr2):Math.round(l.renderedCanvas.height*sr2);
+          if(mx>=l.offsetX&&my>=l.offsetY&&(mx+mw)<=(l.offsetX+bw2)&&(my+mh)<=(l.offsetY+bh2)){targetL=l;break;}
+        }
+        if(!targetL){targetL=S.layers.find(l=>l.renderedCanvas);}
+        if(targetL){
+          pushUndo(); // Save state before applying mask
+          const sr2=targetL.scaleRatio||1;
+          const sw2=Math.round(targetL.renderedCanvas.width*sr2);
+          const sh2=Math.round(targetL.renderedCanvas.height*sr2);
+          const rot2=(targetL.rotation||0)*Math.PI/180;
+          const is90b=(Math.abs(Math.round(targetL.rotation||0)%180)===90);
+          const bw2=is90b?sh2:sw2, bh2=is90b?sw2:sh2;
+          // Convert screen-space mask rect to layer local canvas fractions
+          // Undo the layer rotation to map screen coords → local canvas coords
+          const pivotX=targetL.offsetX+bw2/2, pivotY=targetL.offsetY+bh2/2;
+          const cosR=Math.cos(-rot2), sinR=Math.sin(-rot2);
+          const corners=[
+            {x:mx,y:my},{x:mx+mw,y:my},
+            {x:mx,y:my+mh},{x:mx+mw,y:my+mh}
+          ].map(c=>{
+            const dx=c.x-pivotX, dy=c.y-pivotY;
+            return {x:(dx*cosR-dy*sinR+sw2/2)/sw2, y:(dx*sinR+dy*cosR+sh2/2)/sh2};
+          });
+          const lx=Math.min(...corners.map(c=>c.x));
+          const ly=Math.min(...corners.map(c=>c.y));
+          const lw=Math.max(...corners.map(c=>c.x))-lx;
+          const lh=Math.max(...corners.map(c=>c.y))-ly;
+          if(!targetL.masks)targetL.masks=[];
+          targetL.masks.push({x:lx,y:ly,w:lw,h:lh});
+        }
+      }
+      S.drawing=false;S.curMarkup=null;redraw();return;
+    }
+    if(S.tool==='snip'&&S.curMarkup){
+      S.curMarkup.x2=pos.x;S.curMarkup.y2=pos.y;
+      const sx=Math.min(S.curMarkup.x1,pos.x),sy=Math.min(S.curMarkup.y1,pos.y);
+      const sw=Math.abs(pos.x-S.curMarkup.x1),sh=Math.abs(pos.y-S.curMarkup.y1);
+      if(sw>8&&sh>8){
+        // Capture the canvas region (in canvas coordinate space) as a data URL
+        // We need to account for pan/zoom: canvas coords → pixel coords on the <canvas> element
+        const pixX=Math.round((sx+S.panX)*S.zoom), pixY=Math.round((sy+S.panY)*S.zoom);
+        // Actually canvas coords are already in "canvas space" (before transform)
+        // The canvas element pixel space = canvas_coord * zoom + pan
+        // But the canvas element itself has a 1:1 pixel mapping since we set canvas.width/height
+        // So canvas pixel = (canvas_coord) directly (no zoom needed, canvas is the full drawing surface)
+        const captureCanvas=document.createElement('canvas');
+        captureCanvas.width=Math.round(sw);captureCanvas.height=Math.round(sh);
+        const cctx=captureCanvas.getContext('2d');
+        cctx.drawImage(canvas,Math.round(sx),Math.round(sy),Math.round(sw),Math.round(sh),0,0,Math.round(sw),Math.round(sh));
+        const dataUrl=captureCanvas.toDataURL('image/png');
+        pushUndo();
+        S.markups.push({type:'snip',x1:sx,y1:sy,x2:sx+sw,y2:sy+sh,img:dataUrl,rotation:0});
+      }
+      S.drawing=false;S.curMarkup=null;redraw();
+      setTool('select'); // Auto-switch to select so user can immediately reposition
+      return;
+    }
+    if(S.tool==='pen'){
+      if(S.penPts.length>2){pushUndo();S.markups.push({type:'pen',pts:[...S.penPts],color:S.color,sw:S.strokeW});}
+      S.penPts=[];S.drawing=false;redraw();return;
+    }
+    // Callout: intercept before default push — need text first
+    if(S.tool==='callout'&&S.curMarkup){
+      S.curMarkup.x2=pos.x;S.curMarkup.y2=pos.y;
+      delete S.curMarkup._preview;
+      S.pendingCallout={...S.curMarkup};
+      S.drawing=false;S.curMarkup=null;
+      // Show text float; confirmText will use S.pendingCallout for coords
+      showTextFloat(e.clientX,e.clientY,{x:S.pendingCallout.x1,y:S.pendingCallout.y1});
+      redraw();return;
+    }
+    if(S.curMarkup){
+      S.curMarkup.x2=pos.x;S.curMarkup.y2=pos.y;
+      delete S.curMarkup._preview;
+      const dx=Math.abs(pos.x-S.drawP1.x),dy=Math.abs(pos.y-S.drawP1.y);
+      if(dx>3||dy>3||S.tool==='line'||S.tool==='arrow'){
+        if(S.tool==='dimension'&&S.scale)S.curMarkup.measurement=formatDist(Math.hypot(dx,dy));
+        pushUndo();S.markups.push({...S.curMarkup});
+      }
+    }
+    S.drawing=false;S.curMarkup=null;redraw();
+  }
+});
+
+area.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=area.getBoundingClientRect();
+  const mx=e.clientX-r.left,my=e.clientY-r.top;
+  const delta=e.deltaY>0?.88:1.14;
+  const oz=S.zoom;S.zoom=Math.max(.03,Math.min(20,S.zoom*delta));
+  S.panX=mx-(mx-S.panX)*(S.zoom/oz);
+  S.panY=my-(my-S.panY)*(S.zoom/oz);
+  applyTransform();
+},{passive:false});
+
+// ════════════════════════════════════════════════
+// TEXT FLOAT
+// ════════════════════════════════════════════════
+const textFloat=document.getElementById('text-float');
+const textTA=document.getElementById('text-ta');
+let textPos=null,textTool=null;
+
+function showTextFloat(sx,sy,canvasPos){
+  textPos=canvasPos;textTool=S.tool;
+  textFloat.style.display='block';
+  textFloat.style.left=Math.min(sx+8,window.innerWidth-220)+'px';
+  textFloat.style.top=Math.min(sy+8,window.innerHeight-140)+'px';
+  textTA.value='';textTA.focus();
+}
+document.getElementById('tf-ok').addEventListener('click',()=>confirmText());
+document.getElementById('tf-cancel').addEventListener('click',cancelText);
+textTA.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();confirmText();}if(e.key==='Escape')cancelText();});
+
+function confirmText(){
+  const t=textTA.value.trim();
+  if(t&&textPos){
+    pushUndo();
+    if(textTool==='callout'&&S.pendingCallout){
+      // Use the dragged positions: box at x1,y1 — leader tip at x2,y2
+      S.markups.push({...S.pendingCallout,text:t,fs:13});
+      S.pendingCallout=null;
+    }else if(textTool==='callout'){
+      // Fallback: simple click — offset box above-left of click
+      S.markups.push({type:'callout',x1:textPos.x-80,y1:textPos.y-55,x2:textPos.x,y2:textPos.y,text:t,color:S.color,sw:S.strokeW,fs:13});
+    }else{
+      S.markups.push({type:'text',x1:textPos.x,y1:textPos.y,text:t,color:S.color,sw:S.strokeW,fs:14});
+    }
+    redraw();
+  } else if(textTool==='callout'){
+    S.pendingCallout=null; // clean up if cancelled with no text
+  }
+  textFloat.style.display='none';
+}
+function cancelText(){textFloat.style.display='none';S.pendingCallout=null;}
+
+// ════════════════════════════════════════════════
+// SCALE CALIBRATION
+// ════════════════════════════════════════════════
+document.getElementById('clear-masks-btn').addEventListener('click',()=>{
+  S.layers.forEach(l=>l.masks=[]);redraw();setStatus('All masks cleared');
+});
+document.getElementById('set-scale-btn').addEventListener('click',()=>openModal('modal-scale1'));
+document.getElementById('clear-scale-btn').addEventListener('click',()=>{
+  S.scale=null;document.getElementById('scale-display').textContent='Not calibrated';
+  document.getElementById('st-scale').textContent='Scale: not set';
+});
+document.getElementById('scale1-ok').addEventListener('click',()=>{
+  closeModal('modal-scale1');
+  S.calibMode=true;S.calibPts=[];
+  setHint('Calibrate: Click first reference point on the drawing');
+});
+document.getElementById('scale2-ok').addEventListener('click',()=>{
+  const d=parseFloat(document.getElementById('scale-dist').value);
+  const u=document.getElementById('scale-unit').value;
+  if(!d||d<=0){alert('Enter a valid distance.');return;}
+  if(S.calibPts.length<2){alert('Pick two points first.');return;}
+  const px=Math.hypot(S.calibPts[1].x-S.calibPts[0].x,S.calibPts[1].y-S.calibPts[0].y);
+  S.scale={ppu:px/d,unit:u};
+  document.getElementById('scale-display').textContent=`1 ${u} = ${(px/d).toFixed(2)} px`;
+  document.getElementById('st-scale').textContent=`Scale: 1 ${u} = ${(px/d).toFixed(2)} px`;
+  S.calibPts=[];closeModal('modal-scale2');setHint('');redraw();
+  setStatus('✓ Scale calibrated');
+});
+
+// ════════════════════════════════════════════════
+// ALIGNMENT BUTTONS
+// ════════════════════════════════════════════════
+document.getElementById('auto-align-2-btn').addEventListener('click',()=>autoAlign(1,0));
+document.getElementById('auto-align-3-btn').addEventListener('click',()=>autoAlign(2,0));
+document.getElementById('point-align-btn').addEventListener('click',()=>openModal('modal-palign'));
+document.getElementById('palign-ok').addEventListener('click',startPointAlign);
+document.getElementById('reset-offsets-btn').addEventListener('click',()=>{
+  S.layers.forEach(l=>{l.offsetX=0;l.offsetY=0;});
+  buildSidebar();updateCanvasSize();redraw();setStatus('Offsets reset');
+});
+
+// ════════════════════════════════════════════════
+// CLASH DETECTION CONTROLS
+// ════════════════════════════════════════════════
+document.getElementById('detect-clashes-btn').addEventListener('click',detectClashes);
+document.getElementById('toggle-clashes-btn').addEventListener('click',()=>{
+  S.showClashes=!S.showClashes;
+  document.getElementById('toggle-clashes-btn').textContent=S.showClashes?'Hide':'Show';redraw();
+});
+document.getElementById('clear-clashes-btn').addEventListener('click',()=>{
+  S.clashCanvas=null;S.showClashes=false;S.clashCount=0;
+  document.getElementById('clash-info').textContent='No clash analysis run';
+  document.getElementById('toggle-clashes-btn').textContent='Hide';redraw();
+});
+document.getElementById('clash-thresh').addEventListener('input',e=>{
+  document.getElementById('clash-thresh-lbl').textContent=e.target.value;
+});
+
+// ════════════════════════════════════════════════
+// TOOLBAR TOOLS
+// ════════════════════════════════════════════════
+function setTool(t){
+  S.tool=t;S.polyPts=[];S.penPts=[];S.drawing=false;S.curMarkup=null;
+  if(!S.palignMode&&!S.calibMode)setHint('');
+  document.querySelectorAll('.tb[data-tool]').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));
+  area.style.cursor=cursorFor(t);
+  document.getElementById('st-tool').textContent=t.charAt(0).toUpperCase()+t.slice(1);
+  const hints={
+    select:'Click markup to select → drag to move · resize handle ↘ · Delete to remove · click canvas to pan',
+    text:'Click to place a text annotation',
+    callout:'Click to place a callout',
+    highlight:'Drag to highlight a region',
+    pen:'Click-drag to draw freehand',
+    line:'Drag to draw a line',
+    arrow:'Drag to draw an arrow',
+    polyline:'Click points · Double-click to finish',
+    rect:'Drag to draw a rectangle',
+    ellipse:'Drag to draw an ellipse',
+    cloud:'Drag to draw a revision cloud',
+    polygon:'Click points · Double-click to close',
+    dimension:S.scale?'Drag to measure distance':'Set scale first, then drag to measure',
+    area:'Click points · Double-click to close and calculate area',
+    count:'Click to place count markers',
+    snip:'Drag to capture a region as a movable overlay — use Select to reposition it',
+  };
+  if(!S.palignMode&&!S.calibMode)document.getElementById('st-hint').textContent=hints[t]||'';
+}
+
+function cursorFor(t){
+  if(t==='select')return'default';
+  if(t==='pen')return'crosshair';
+  return'crosshair';
+}
+
+document.querySelectorAll('.tb[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
+
+// ════════════════════════════════════════════════
+// COLOR & STROKE
+// ════════════════════════════════════════════════
+document.querySelectorAll('.sw').forEach(sw=>{
+  sw.addEventListener('click',()=>{
+    document.querySelectorAll('.sw').forEach(s=>s.classList.remove('active'));
+    sw.classList.add('active');S.color=sw.dataset.color;
+    document.getElementById('custom-color').value=S.color;
+  });
+});
+document.getElementById('custom-color').addEventListener('input',e=>{
+  S.color=e.target.value;
+  document.querySelectorAll('.sw').forEach(s=>s.classList.remove('active'));
+});
+document.querySelectorAll('.sw-opt').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.sw-opt').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');S.strokeW=+b.dataset.w;
+  });
+});
+document.getElementById('fill-opacity').addEventListener('input',e=>{
+  S.fillOpacity=+e.target.value/100;
+  document.getElementById('fill-opacity-lbl').textContent=e.target.value+'%';
+});
+
+// ════════════════════════════════════════════════
+// UNDO / REDO
+// ════════════════════════════════════════════════
+function captureLayerState(){
+  return S.layers.map(l=>({
+    masks:(l.masks||[]).map(m=>({...m})),
+    offsetX:l.offsetX,offsetY:l.offsetY,
+    rotation:l.rotation||0,scaleRatio:l.scaleRatio||1,
+    opacity:l.opacity,visible:l.visible
+  }));
+}
+function restoreLayerState(saved){
+  saved.forEach((ls,i)=>{
+    if(!S.layers[i])return;
+    S.layers[i].masks=ls.masks.map(m=>({...m}));
+    S.layers[i].offsetX=ls.offsetX;S.layers[i].offsetY=ls.offsetY;
+    S.layers[i].rotation=ls.rotation;S.layers[i].scaleRatio=ls.scaleRatio;
+    S.layers[i].opacity=ls.opacity;S.layers[i].visible=ls.visible;
+  });
+}
+function pushUndo(){
+  S.undo.push({markups:JSON.parse(JSON.stringify(S.markups)),layers:captureLayerState()});
+  S.redo=[];
+}
+function undo(){
+  if(!S.undo.length)return;
+  S.redo.push({markups:JSON.parse(JSON.stringify(S.markups)),layers:captureLayerState()});
+  const e=S.undo.pop();
+  S.markups=e.markups;
+  if(e.layers){restoreLayerState(e.layers);buildSidebar();}
+  redraw();
+}
+function redo(){
+  if(!S.redo.length)return;
+  S.undo.push({markups:JSON.parse(JSON.stringify(S.markups)),layers:captureLayerState()});
+  const e=S.redo.pop();
+  S.markups=e.markups;
+  if(e.layers){restoreLayerState(e.layers);buildSidebar();}
+  redraw();
+}
+document.getElementById('undo-btn').addEventListener('click',undo);
+document.getElementById('redo-btn').addEventListener('click',redo);
+document.getElementById('clear-markups-btn').addEventListener('click',()=>{
+  if(!S.markups.length)return;
+  if(confirm('Clear all markups? This cannot be undone.')){S.markups=[];S.undo=[];S.redo=[];S.countN=1;redraw();}
+});
+
+// ════════════════════════════════════════════════
+// ZOOM
+// ════════════════════════════════════════════════
+document.getElementById('zoom-in-btn').addEventListener('click',()=>{S.zoom=Math.min(20,S.zoom*1.3);applyTransform();});
+document.getElementById('zoom-out-btn').addEventListener('click',()=>{S.zoom=Math.max(.03,S.zoom/1.3);applyTransform();});
+document.getElementById('fit-btn').addEventListener('click',fitToWindow);
+
+// ════════════════════════════════════════════════
+// KEYBOARD
+// ════════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  const tag=e.target.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+  const map={v:'select',t:'text',u:'callout',h:'highlight',p:'pen',l:'line',a:'arrow',o:'polyline',r:'rect',e:'ellipse',c:'cloud',g:'polygon',d:'dimension',m:'area',n:'count',k:'mask',x:'snip'};
+  if(map[e.key.toLowerCase()]&&!e.ctrlKey&&!e.metaKey){setTool(map[e.key.toLowerCase()]);return;}
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'){e.preventDefault();undo();}
+  if((e.ctrlKey||e.metaKey)&&(e.key==='y'||(e.shiftKey&&e.key==='Z'))){e.preventDefault();redo();}
+  if(e.key==='+'||e.key==='='){S.zoom=Math.min(20,S.zoom*1.2);applyTransform();}
+  if(e.key==='-'){S.zoom=Math.max(.03,S.zoom/1.2);applyTransform();}
+  if(e.key.toLowerCase()==='f')fitToWindow();
+  if(e.key==='Delete'||e.key==='Backspace'){
+    if(S.selectedIdx>=0&&S.selectedIdx<S.markups.length){
+      pushUndo();S.markups.splice(S.selectedIdx,1);S.selectedIdx=-1;redraw();return;
+    }
+  }
+  if(e.key==='Escape'){
+    S.polyPts=[];S.penPts=[];S.drawing=false;S.curMarkup=null;
+    S.calibMode=false;S.calibPts=[];
+    S.palignMode=false;S.palignP1=null;
+    S.selectedIdx=-1;S.moving=null;S.resizing=null;
+    setHint('');redraw();
+  }
+});
+
+// ════════════════════════════════════════════════
+// MODAL HELPERS
+// ════════════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+window.closeModal=closeModal;
+
+// Close on background click
+document.querySelectorAll('.modal-bg').forEach(bg=>{
+  bg.addEventListener('click',e=>{if(e.target===bg&&bg.id!=='modal-aligning')closeModal(bg.id);});
+});
+
+// ════════════════════════════════════════════════
+// STATUS HELPERS
+// ════════════════════════════════════════════════
+let statusTimer=null;
+function setStatus(msg){
+  document.getElementById('status-msg').textContent=msg;
+  clearTimeout(statusTimer);
+  statusTimer=setTimeout(()=>document.getElementById('status-msg').textContent='',5000);
+}
+function setHint(msg){document.getElementById('st-hint').textContent=msg;}
+
+// ════════════════════════════════════════════════
+// RESIZABLE CALLOUT BOXES
+// ════════════════════════════════════════════════
+
+// Returns the box bounds of a callout in canvas coords
+function calloutBounds(m){
+  ctx.font=`${m.fs||13}px -apple-system,sans-serif`;
+  const lines=(m.text||'').split('\n');
+  const lh=17;
+  const autoW=Math.max(...lines.map(l=>ctx.measureText(l).width),60)+14;
+  const autoH=lines.length*lh+10;
+  return{x:m.x1,y:m.y1,w:m.w||autoW,h:m.h||autoH};
+}
+function ptInCallout(m,x,y){
+  if(m.type!=='callout'||!m.text)return false;
+  const b=calloutBounds(m);
+  return x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h;
+}
+function ptOnResizeHandle(m,x,y){
+  if(m.type!=='callout'||!m.text)return false;
+  const b=calloutBounds(m);
+  return x>=b.x+b.w-16&&x<=b.x+b.w+4&&y>=b.y+b.h-16&&y<=b.y+b.h+4;
+}
+
+// Add to state
+S.selectedIdx=-1;
+S.resizing=null;  // {idx, startX, startY, origW, origH}
+S.moving=null;    // {idx, startX, startY, origX1, origY1, origX2, origY2}
+
+// Patch drawCallout to support explicit w/h and show selection + resize handle
+const _origDrawCallout=drawCallout;
+// Override drawCallout in drawMarkup by modifying the function directly
+// (already defined above — we patch the behaviour via the bounds helper)
+
+// Draw selection outline + resize handle after drawMarkup
+function drawCalloutExtras(m,idx){
+  if(!m.text)return;
+  const b=calloutBounds(m);
+  ctx.save();
+  // selection highlight
+  if(idx===S.selectedIdx){
+    ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);
+    ctx.beginPath();roundRect(ctx,b.x-2,b.y-2,b.w+4,b.h+4,6);ctx.stroke();ctx.setLineDash([]);
+  }
+  // resize handle (bottom-right triangle)
+  ctx.fillStyle=m.color;ctx.globalAlpha=.85;
+  ctx.beginPath();
+  ctx.moveTo(b.x+b.w-12,b.y+b.h);
+  ctx.lineTo(b.x+b.w,b.y+b.h);
+  ctx.lineTo(b.x+b.w,b.y+b.h-12);
+  ctx.closePath();ctx.fill();ctx.globalAlpha=1;
+  ctx.restore();
+}
+
+// Patch redraw to call extras after all markups
+const _origRedraw=redraw;
+redraw=function(){
+  _origRedraw();
+  S.markups.forEach((m,i)=>{if(m.type==='callout')drawCalloutExtras(m,i);});
+  if(S.curMarkup&&S.curMarkup.type==='callout')drawCalloutExtras(S.curMarkup,-1);
+};
+
+// Patch drawCallout to respect explicit w/h
+const _origDrawCalloutFn=drawCallout;
+drawCallout=function(m){
+  ctx.font=`${m.fs||13}px -apple-system,sans-serif`;
+  const lines=(m.text||'').split('\n');
+  const lh=17;
+  const isPreview=!m.text;
+  const autoW=isPreview?80:Math.max(...lines.map(l=>ctx.measureText(l).width),60);
+  const autoH=isPreview?36:lines.length*lh+10;
+  const bw=m.w||(autoW+14);
+  const bh=m.h||autoH;
+  const bx=m.x1,by=m.y1;
+  ctx.beginPath();roundRect(ctx,bx,by,bw,bh,5);
+  ctx.fillStyle=isPreview?'rgba(0,0,0,.35)':'rgba(0,0,0,.72)';ctx.fill();
+  ctx.strokeStyle=m.color;ctx.lineWidth=m.sw||1;
+  if(isPreview)ctx.setLineDash([4,3]);
+  ctx.stroke();ctx.setLineDash([]);
+  if(m.x2!=null){
+    const lx=bx+bw/2,ly=by+bh;
+    ctx.beginPath();ctx.moveTo(lx,ly);ctx.lineTo(m.x2,m.y2);
+    ctx.strokeStyle=m.color;ctx.lineWidth=m.sw||1;ctx.stroke();
+    const a=Math.atan2(m.y2-ly,m.x2-lx);const hl=10;
+    ctx.beginPath();ctx.moveTo(m.x2,m.y2);
+    ctx.lineTo(m.x2-hl*Math.cos(a-Math.PI/7),m.y2-hl*Math.sin(a-Math.PI/7));
+    ctx.lineTo(m.x2-hl*Math.cos(a+Math.PI/7),m.y2-hl*Math.sin(a+Math.PI/7));
+    ctx.closePath();ctx.fillStyle=m.color;ctx.fill();
+  }
+  if(!isPreview){
+    ctx.fillStyle=m.color;
+    lines.forEach((ln,i)=>ctx.fillText(ln,bx+7,by+16+i*lh));
+  }else{
+    ctx.fillStyle='rgba(255,255,255,.3)';ctx.fillText('type text…',bx+7,by+22);
+  }
+};
+
+// Patch mousedown for select tool to handle resize/move/deselect
+const _origMousedown=area.onmousedown; // not set — we'll intercept via the existing listener chain
+// Instead: modify the existing mousedown handler logic by patching at the select/pan section
+// We add a pre-check by wrapping the select branch
+
+area.addEventListener('mousedown',e=>{
+  if(e.button!==0||S.drawing||S.calibMode||S.palignMode)return;
+  if(S.tool!=='select'&&!e.altKey)return;
+  const pos=screenToCanvas(e.clientX,e.clientY);
+  // Check callout interactions first (before panning takes over)
+  for(let i=S.markups.length-1;i>=0;i--){
+    const m=S.markups[i];
+    if(m.type!=='callout'||!m.text)continue;
+    if(ptOnResizeHandle(m,pos.x,pos.y)){
+      e.stopImmediatePropagation();
+      S.selectedIdx=i;
+      const b=calloutBounds(m);
+      S.resizing={idx:i,startX:pos.x,startY:pos.y,origW:b.w,origH:b.h};
+      return;
+    }
+    if(ptInCallout(m,pos.x,pos.y)){
+      e.stopImmediatePropagation();
+      S.selectedIdx=i;
+      const b=calloutBounds(m);
+      S.moving={idx:i,startX:pos.x,startY:pos.y,origX1:m.x1,origY1:m.y1,origX2:m.x2,origY2:m.y2};
+      return;
+    }
+  }
+  // Clicked empty space — deselect
+  S.selectedIdx=-1;
+  redraw();
+},true); // capture phase so it runs before the existing pan handler
+
+area.addEventListener('mousemove',e=>{
+  const pos=screenToCanvas(e.clientX,e.clientY);
+  if(S.resizing){
+    const m=S.markups[S.resizing.idx];
+    m.w=Math.max(60,S.resizing.origW+(pos.x-S.resizing.startX));
+    m.h=Math.max(28,S.resizing.origH+(pos.y-S.resizing.startY));
+    redraw();return;
+  }
+  if(S.moving){
+    const m=S.markups[S.moving.idx];
+    const dx=pos.x-S.moving.startX,dy=pos.y-S.moving.startY;
+    m.x1=S.moving.origX1+dx;m.y1=S.moving.origY1+dy;
+    if(m.x2!=null){m.x2=S.moving.origX2+dx;m.y2=S.moving.origY2+dy;}
+    redraw();return;
+  }
+  // Cursor hint for resize handle
+  if(S.tool==='select'){
+    let onHandle=false,onBody=false;
+    for(const m of S.markups){
+      if(m.type!=='callout'||!m.text)continue;
+      if(ptOnResizeHandle(m,pos.x,pos.y)){onHandle=true;break;}
+      if(ptInCallout(m,pos.x,pos.y)){onBody=true;}
+    }
+    area.style.cursor=onHandle?'se-resize':onBody?'move':'default';
+  }
+},true);
+
+area.addEventListener('mouseup',e=>{
+  if(S.resizing){pushUndo();S.resizing=null;redraw();return;}
+  if(S.moving){pushUndo();S.moving=null;redraw();return;}
+},true);
+
+// Double-click callout to re-edit text
+area.addEventListener('dblclick',e=>{
+  if(S.tool!=='select')return;
+  const pos=screenToCanvas(e.clientX,e.clientY);
+  for(let i=S.markups.length-1;i>=0;i--){
+    const m=S.markups[i];
+    if(m.type==='callout'&&m.text&&ptInCallout(m,pos.x,pos.y)){
+      S.selectedIdx=i;
+      // Re-open text float with existing text
+      S.pendingCallout={...m,_editing:true,_editIdx:i};
+      textTool='callout';textPos={x:m.x1,y:m.y1};
+      textFloat.style.display='block';
+      textFloat.style.left=Math.min(e.clientX+8,window.innerWidth-220)+'px';
+      textFloat.style.top=Math.min(e.clientY+8,window.innerHeight-140)+'px';
+      textTA.value=m.text;textTA.focus();textTA.select();
+      e.stopImmediatePropagation();return;
+    }
+  }
+},true);
+
+// Patch confirmText to handle editing existing callout
+const _origConfirmText=confirmText;
+confirmText=function(){
+  if(S.pendingCallout&&S.pendingCallout._editing){
+    const t=textTA.value.trim();
+    if(t){
+      const idx=S.pendingCallout._editIdx;
+      pushUndo();
+      S.markups[idx]={...S.markups[idx],text:t};
+    }
+    S.pendingCallout=null;
+    textFloat.style.display='none';
+    redraw();return;
+  }
+  _origConfirmText();
+};
+
+// ════════════════════════════════════════════════
+// SAVE / LOAD SESSIONS
+// ════════════════════════════════════════════════
+const AUTOSAVE_KEY='hmk-review-autosave';
+const SESSIONS_KEY='hmk-review-sessions';
+
+function arrayBufferToBase64(buf){
+  let bin='';const b=new Uint8Array(buf);
+  for(let i=0;i<b.byteLength;i++)bin+=String.fromCharCode(b[i]);
+  return btoa(bin);
+}
+function base64ToArrayBuffer(b64){
+  const bin=atob(b64);const b=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);
+  return b.buffer;
+}
+
+function getSessionData(name){
+  return{
+    version:2,name:name||'Untitled',
+    savedAt:new Date().toISOString(),
+    markups:JSON.parse(JSON.stringify(S.markups)),
+    scale:S.scale?{...S.scale}:null,
+    countN:S.countN,
+    layers:S.layers.map(l=>({id:l.id,name:l.name,color:l.color,opacity:l.opacity,
+      visible:l.visible,offsetX:l.offsetX,offsetY:l.offsetY,scaleRatio:l.scaleRatio||1.0,rotation:l.rotation||0,masks:l.masks||[],currentPage:l.currentPage,
+      pdfKey:l.pdfKey||null}))
+  };
+}
+
+function applySessionData(data){
+  S.markups=data.markups||[];
+  S.scale=data.scale||null;
+  S.countN=data.countN||1;
+  if(data.layers){
+    data.layers.forEach(ld=>{
+      const L=S.layers[ld.id];if(!L)return;
+      L.name=ld.name;L.opacity=ld.opacity;L.visible=ld.visible;
+      L.offsetX=ld.offsetX||0;L.offsetY=ld.offsetY||0;L.scaleRatio=ld.scaleRatio||1.0;L.rotation=ld.rotation||0;L.masks=ld.masks||[];
+    });
+  }
+  if(S.scale){
+    document.getElementById('scale-display').textContent=`1 ${S.scale.unit} = ${S.scale.ppu.toFixed(2)} px`;
+    document.getElementById('st-scale').textContent=`Scale: 1 ${S.scale.unit} = ${S.scale.ppu.toFixed(2)} px`;
+  }
+  S.undo=[];S.redo=[];
+  buildSidebar();updateCanvasSize();redraw();
+}
+
+async function restoreSession(data){
+  applySessionData(data);
+  const layerData=data.layers||[];
+  const layersWithPdf=layerData.filter(ld=>ld.pdfKey||ld.pdfData);
+
+  // Old sessions (saved before IDB support) have no pdfKey/pdfData — tell the user
+  const hadPdfs=layerData.some(ld=>ld.name&&ld.name!==LAYER_NAMES[ld.id]);
+  if(!layersWithPdf.length){
+    setStatus(hadPdfs
+      ?'Markups restored — this session was saved before drawing storage was added. Please re-load your PDFs.'
+      :'Session restored');
+    return;
+  }
+
+  setStatus('Restoring drawings…');
+  let loaded=0,missing=0;
+  // Also include layers that have inline pdfData (exported files)
+  const layersToLoad=layerData.filter(ld=>ld.pdfKey||ld.pdfData);
+  for(const ld of layersToLoad){
+    const L=S.layers[ld.id];if(!L)continue;
+    try{
+      let buf=null;
+      // 1. Inline base64 from exported file (fully portable)
+      if(ld.pdfData){
+        buf=base64ToArrayBuffer(ld.pdfData);
+        // Also store in IDB so browser sessions work going forward
+        L.pdfKey='pdf-'+ld.id+'-'+Date.now();
+        idbPut(L.pdfKey,buf.slice(0));
+      }
+      // 2. Fallback: browser IDB storage
+      if(!buf&&ld.pdfKey){
+        buf=await idbGet(ld.pdfKey);
+        if(!buf){console.warn('IDB: no data for key',ld.pdfKey);missing++;continue;}
+      }
+      if(!buf){missing++;continue;}
+      L.rawData=buf.slice(0);
+      const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+      L.pdfDoc=pdf;L.totalPages=pdf.numPages;
+      L.currentPage=ld.currentPage||1;
+      L.renderedCanvas=await renderPage(pdf,L.currentPage,L.color);
+      loaded++;
+    }catch(e){
+      console.error('Could not restore PDF for layer',ld.id,e);
+      missing++;
+    }
+  }
+  if(loaded>0){
+    document.getElementById('empty-msg').style.display='none';
+    updateCanvasSize();buildSidebar();redraw();fitToWindow();
+    const msg=missing?` (${missing} drawing${missing>1?'s':''} missing — re-load manually)`:'';
+    setStatus(`✓ Session restored with ${loaded} drawing${loaded>1?'s':''}${msg}`);
+  }else{
+    setStatus('Session restored — drawings could not be retrieved from browser storage. Please re-load your PDFs.');
+  }
+}
+
+function autoSave(){
+  try{localStorage.setItem(AUTOSAVE_KEY,JSON.stringify(getSessionData('Autosave')));}catch(e){}
+  const dot=document.getElementById('autosave-dot');
+  dot.classList.add('flash');setTimeout(()=>dot.classList.remove('flash'),1500);
+}
+
+// Patch pushUndo to auto-save
+const _origPushUndo=pushUndo;
+pushUndo=function(){_origPushUndo();autoSave();};
+
+function getSessions(){
+  try{return JSON.parse(localStorage.getItem(SESSIONS_KEY)||'[]');}catch(e){return[];}
+}
+function saveSessions(arr){
+  try{localStorage.setItem(SESSIONS_KEY,JSON.stringify(arr));}catch(e){}
+}
+
+function renderSessionList(){
+  const list=document.getElementById('session-list');
+  const sessions=getSessions();
+  // Check for autosave
+  let autoData=null;
+  try{autoData=JSON.parse(localStorage.getItem(AUTOSAVE_KEY));}catch(e){}
+
+  list.innerHTML='';
+  if(sessions.length===0&&!autoData){
+    list.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px;font-size:12px">No saved sessions yet</div>';
+    return;
+  }
+  // Show autosave at top
+  if(autoData){
+    const d=new Date(autoData.savedAt);
+    const item=document.createElement('div');item.className='session-item';
+    item.style.borderColor='var(--warn)';
+    item.innerHTML=`
+      <div class="session-meta">
+        <div class="session-name" style="color:var(--warn)">⚡ Auto-save</div>
+        <div class="session-date">${d.toLocaleString()}</div>
+        <div class="session-markups">${autoData.markups?.length||0} markups</div>
+      </div>
+      <button class="s-load" id="load-autosave">Restore</button>`;
+    item.querySelector('#load-autosave').onclick=()=>{closeModal('modal-sessions');restoreSession(autoData);};
+    list.appendChild(item);
+  }
+  sessions.slice().reverse().forEach((s,ri)=>{
+    const i=sessions.length-1-ri;
+    const d=new Date(s.savedAt);
+    const item=document.createElement('div');item.className='session-item';
+    item.innerHTML=`
+      <div class="session-meta">
+        <div class="session-name">${s.name||'Untitled'}</div>
+        <div class="session-date">${d.toLocaleString()}</div>
+        <div class="session-markups">${s.markups?.length||0} markups</div>
+      </div>
+      <button class="s-load" data-i="${i}">Load</button>
+      <button class="s-del" data-i="${i}" title="Delete">✕</button>`;
+    item.querySelector('.s-load').onclick=()=>{closeModal('modal-sessions');restoreSession(s);};
+    item.querySelector('.s-del').onclick=()=>{
+      const arr=getSessions();
+      const deleted=arr.splice(i,1)[0];
+      if(deleted?.layers)deleted.layers.forEach(ld=>idbDelete(ld.pdfKey));
+      saveSessions(arr);renderSessionList();
+    };
+    list.appendChild(item);
+  });
+}
+
+document.getElementById('sessions-btn').addEventListener('click',()=>{
+  renderSessionList();openModal('modal-sessions');
+});
+
+document.getElementById('save-new-session-btn').addEventListener('click',()=>{
+  const name=document.getElementById('session-name-input').value.trim()||
+    'Review '+new Date().toLocaleDateString();
+  const sessions=getSessions();
+  sessions.push(getSessionData(name));
+  saveSessions(sessions);
+  document.getElementById('session-name-input').value='';
+  renderSessionList();
+  setStatus(`✓ Session "${name}" saved`);
+});
+
+document.getElementById('export-session-btn').addEventListener('click',async()=>{
+  const name=document.getElementById('session-name-input').value.trim()||
+    'hmk-review-'+new Date().toISOString().slice(0,10);
+  setStatus('Embedding drawings in export file…');
+  const data=getSessionData(name);
+  // Embed each loaded PDF as base64 so the file is fully self-contained
+  for(const ld of data.layers){
+    const L=S.layers[ld.id];
+    let buf=L.rawData||null;
+    if(!buf&&ld.pdfKey){buf=await idbGet(ld.pdfKey);}
+    if(buf){ld.pdfData=arrayBufferToBase64(buf);}
+  }
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name+'.hmkrev';a.click();
+  URL.revokeObjectURL(url);
+  setStatus('✓ Session exported with drawings embedded');
+});
+
+document.getElementById('import-session-input').addEventListener('change',async e=>{
+  const file=e.target.files[0];if(!file)return;
+  try{
+    const text=await file.text();
+    const data=JSON.parse(text);
+    closeModal('modal-sessions');
+    await restoreSession(data);
+  }catch(err){setStatus('Error loading review: '+err.message);}
+  e.target.value='';
+});
+
+// Try restoring autosave on load
+(()=>{
+  try{
+    const d=localStorage.getItem(AUTOSAVE_KEY);
+    if(d){
+      const data=JSON.parse(d);
+      if(data.markups&&data.markups.length>0){
+        setStatus(`Auto-save available — click Sessions to restore ${data.markups.length} markup(s)`);
+      }
+    }
+  }catch(e){}
+})();
+
+// ════════════════════════════════════════════════
+// PDF EXPORT
+// ════════════════════════════════════════════════
+document.getElementById('export-pdf-btn').addEventListener('click',async()=>{
+  if(!S.cW){setStatus('No drawings loaded to export');return;}
+  setStatus('Generating PDF…');
+  await new Promise(r=>requestAnimationFrame(r));
+  redraw();
+  await new Promise(r=>requestAnimationFrame(r));
+  try{
+    const imgData=canvas.toDataURL('image/jpeg',0.92);
+    const jsPDF=window.jspdf?.jsPDF||window.jsPDF;
+    if(!jsPDF){throw new Error('jsPDF library not loaded');}
+    const orient=canvas.width>=canvas.height?'l':'p';
+    const mmW=Math.round(canvas.width*0.264583);
+    const mmH=Math.round(canvas.height*0.264583);
+    const pdf=new jsPDF({orientation:orient,unit:'mm',format:[mmW,mmH]});
+    pdf.addImage(imgData,'JPEG',0,0,mmW,mmH);
+    // Add footer strip
+    const today=new Date().toLocaleDateString();
+    pdf.setFontSize(9);pdf.setTextColor(120,130,150);
+    pdf.text(`HMK Company — Drawing Overlay Review   ${today}`,10,mmH-4);
+    const fname='HMK-Review-'+new Date().toISOString().slice(0,10)+'.pdf';
+    pdf.save(fname);
+    setStatus('✓ PDF exported: '+fname);
+  }catch(err){setStatus('PDF export error: '+err.message);console.error(err);}
+});
+
+// ════════════════════════════════════════════════
+// DRAWING DRAWER
+// ════════════════════════════════════════════════
+const drawer=document.getElementById('drawer');
+const drawerCanvas=document.getElementById('drawer-canvas');
+const dCtx=drawerCanvas.getContext('2d');
+let drawerState={layerIdx:0,page:1,open:false};
+
+function buildDrawerTabs(){
+  const tabs=document.getElementById('drawer-tabs');
+  tabs.innerHTML='';
+  S.layers.forEach((L,i)=>{
+    if(!L.pdfDoc)return;
+    const t=document.createElement('div');
+    t.className='dtab'+(i===drawerState.layerIdx?' active':'');
+    t.style.borderBottomColor=i===drawerState.layerIdx?L.color:'transparent';
+    t.style.color=i===drawerState.layerIdx?L.color:'';
+    t.innerHTML=`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${L.color};margin-right:4px"></span>${L.name}`;
+    t.addEventListener('click',()=>{
+      drawerState.layerIdx=i;drawerState.page=L.currentPage;
+      buildDrawerTabs();renderDrawerPage();
+    });
+    tabs.appendChild(t);
+  });
+  // If no loaded layers, show placeholder
+  if(!S.layers.some(l=>l.pdfDoc)){
+    tabs.innerHTML='<div style="padding:8px 12px;font-size:11px;color:var(--muted)">No PDFs loaded</div>';
+  }
+}
+
+async function renderDrawerPage(){
+  const L=S.layers[drawerState.layerIdx];
+  if(!L||!L.pdfDoc){
+    dCtx.clearRect(0,0,drawerCanvas.width,drawerCanvas.height);
+    document.getElementById('drawer-layer-lbl').textContent='—';
+    document.getElementById('drawer-page-lbl').textContent='— / —';
+    return;
+  }
+  const pg=drawerState.page;
+  document.getElementById('drawer-layer-lbl').textContent=L.name;
+  document.getElementById('drawer-page-lbl').textContent=`${pg} / ${L.totalPages}`;
+  document.getElementById('dprev-btn').disabled=pg<=1;
+  document.getElementById('dnext-btn').disabled=pg>=L.totalPages;
+
+  // Render full-color (no tint) at appropriate scale
+  const page=await L.pdfDoc.getPage(pg);
+  const wrap=document.getElementById('drawer-canvas-wrap');
+  const maxW=wrap.clientWidth-12||380;
+  const vp0=page.getViewport({scale:1});
+  const sc=Math.min(maxW/vp0.width,2);
+  const vp=page.getViewport({scale:sc});
+  drawerCanvas.width=vp.width;drawerCanvas.height=vp.height;
+  dCtx.fillStyle='#fff';dCtx.fillRect(0,0,drawerCanvas.width,drawerCanvas.height);
+  await page.render({canvasContext:dCtx,viewport:vp}).promise;
+}
+
+document.getElementById('drawer-toggle-btn').addEventListener('click',()=>{
+  drawerState.open=!drawerState.open;
+  drawer.classList.toggle('open',drawerState.open);
+  document.getElementById('drawer-toggle-btn').classList.toggle('active',drawerState.open);
+  if(drawerState.open){
+    // Select first loaded layer
+    const first=S.layers.findIndex(l=>l.pdfDoc);
+    if(first>=0){drawerState.layerIdx=first;drawerState.page=S.layers[first].currentPage;}
+    buildDrawerTabs();renderDrawerPage();
+  }
+});
+
+document.getElementById('dprev-btn').addEventListener('click',()=>{
+  if(drawerState.page>1){drawerState.page--;renderDrawerPage();}
+});
+document.getElementById('dnext-btn').addEventListener('click',()=>{
+  const L=S.layers[drawerState.layerIdx];
+  if(L&&drawerState.page<L.totalPages){drawerState.page++;renderDrawerPage();}
+});
+
+// Refresh drawer tabs whenever a PDF is loaded
+const _origLoadPDF=loadPDF;
+loadPDF=async function(file,layerId){
+  await _origLoadPDF(file,layerId);
+  if(drawerState.open){buildDrawerTabs();renderDrawerPage();}
+};
+
+// Keyboard shortcut W to toggle drawer
+document.addEventListener('keydown',e=>{
+  const tag=e.target.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT')return;
+  if(e.key.toLowerCase()==='w'&&!e.ctrlKey&&!e.metaKey){
+    document.getElementById('drawer-toggle-btn').click();
+  }
+});
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+buildSidebar();
+setTool('select');
+window.addEventListener('resize',()=>{if(S.cW)fitToWindow();});
+</script>
+</body>
+</html>
